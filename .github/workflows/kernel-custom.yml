@@ -125,7 +125,7 @@ jobs:
       kernel_full: ${{ steps.resolve.outputs.kernel_full }}
     steps:
       - name: 检出版本数据
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: 解析安全补丁级别
         id: resolve

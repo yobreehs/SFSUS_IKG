@@ -132,7 +132,7 @@ jobs:
           testing: false
 
       - name: 检出代码仓库
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: 初始化构建环境
         run: |
