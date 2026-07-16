@@ -1183,31 +1183,17 @@ jobs:
           rm -rf "$TMP_REKERNEL"
           git clone --depth 1 https://github.com/Sakion-Team/Re-Kernel.git "$TMP_REKERNEL"
 
-          # 准备驱动源码
+          # 同步上游拆分后的完整驱动源码
+          rm -rf common/drivers/rekernel
           mkdir -p common/drivers/rekernel
-          cp "$TMP_REKERNEL/LKM-Source/rekernel.c" common/drivers/rekernel/
-          cp "$TMP_REKERNEL/LKM-Source/rekernel.h" common/drivers/rekernel/
+          cp -a "$TMP_REKERNEL/LKM-Source/." common/drivers/rekernel/
 
-          # 生成构建配置
-          cat > common/drivers/rekernel/Kconfig << 'EOF'
-          menu "Re:Kernel"
-          config REKERNEL
-              bool "Re:Kernel support (GKI Vendor Hooks)"
-              default y
-              help
-                Enable Re-Kernel support via GKI Vendor Hooks.
-
-          config REKERNEL_NETWORK
-              bool "Re:Kernel NetReceive unfreeze support"
-              depends on REKERNEL
-              default n
-          endmenu
-          EOF
-
-          cat > common/drivers/rekernel/Makefile << 'EOF'
-          obj-$(CONFIG_REKERNEL) += rekernel.o
-          ccflags-$(CONFIG_REKERNEL_NETWORK) += -DNETWORK_FILTER
-          EOF
+          # 将上游外置模块配置适配为内核内置驱动
+          REKERNEL_MAKEFILE="common/drivers/rekernel/Makefile"
+          sed -i 's/^obj-m := rekernel\.o$/obj-$(CONFIG_REKERNEL) += rekernel.o/' "$REKERNEL_MAKEFILE"
+          grep -qF 'ccflags-$(CONFIG_REKERNEL_LEGACY_NETLINK) += -DLEGACY_NETLINK' "$REKERNEL_MAKEFILE" || \
+            echo 'ccflags-$(CONFIG_REKERNEL_LEGACY_NETLINK) += -DLEGACY_NETLINK' >> "$REKERNEL_MAKEFILE"
+          sed -i '/^[[:space:]]*depends on MODULES[[:space:]]*$/d' common/drivers/rekernel/Kconfig
 
           # 挂载到驱动树
           if ! grep -qF 'source "drivers/rekernel/Kconfig"' common/drivers/Kconfig; then
@@ -1217,17 +1203,11 @@ jobs:
             echo 'obj-$(CONFIG_REKERNEL) += rekernel/' >> common/drivers/Makefile
           fi
 
-          # 启用内核版本宏
-          REKERNEL_H="common/drivers/rekernel/rekernel.h"
-          VERSION_MACRO="KERNEL_$(echo "${{ inputs.kernel_version }}" | tr '.' '_')"
-          if grep -q "^// #define ${VERSION_MACRO}$" "$REKERNEL_H"; then
-            sed -i "s|^// #define ${VERSION_MACRO}$|#define ${VERSION_MACRO}|" "$REKERNEL_H"
-          fi
-
           # 修正头文件包含路径（适配 in-tree 编译）
-          sed -i 's|#include <../android/binder_internal.h>|#include "../../drivers/android/binder_internal.h"|g' common/drivers/rekernel/rekernel.c
-          # 补齐 binder_internal 依赖（避免 5.10 下 DEFINE_SHOW_ATTRIBUTE 报错）
-          grep -qF '#include <linux/seq_file.h>' common/drivers/rekernel/rekernel.c || sed -i '/#include <trace\/hooks\/signal.h>/a #include <linux/seq_file.h>' common/drivers/rekernel/rekernel.c
+          sed -i 's|#include <../android/binder_internal.h>|#include "../android/binder_internal.h"|g' common/drivers/rekernel/rekernel_binder.c
+          # 补齐 5.10 binder_internal.h 使用 DEFINE_SHOW_ATTRIBUTE 所需的定义
+          grep -qF '#include <linux/seq_file.h>' common/drivers/rekernel/rekernel_binder.c || \
+            sed -i '/#include <linux\/kprobes.h>/a #include <linux/seq_file.h>' common/drivers/rekernel/rekernel_binder.c
 
           # 配置 defconfig（幂等）
           grep -q '^CONFIG_REKERNEL=y$' "$DEFCONFIG" || echo "CONFIG_REKERNEL=y" >> "$DEFCONFIG"
