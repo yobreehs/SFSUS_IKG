@@ -1207,8 +1207,11 @@ jobs:
           }
 
           if [[ "${{ inputs.android_version }}" == "android15" && "${{ inputs.kernel_version }}" == "6.6" ]]; then
-            # 1. Enable user namespace (required)
-            # enable_config_if_defined CONFIG_USER_NS
+            # 1. User namespace: stay DISABLED (2.5.0 policy). Stock GKI ships it
+            # off; keeping it off avoids the /proc/self/uid_map root-detection
+            # vector (see soranerai/GKI_KernelSU_SUSFS#6). Droidspaces doesn't
+            # hard-require it for its NTSync/container core.
+            disable_config CONFIG_USER_NS
             # 2. Disable Android strict network control (required)
             disable_config CONFIG_ANDROID_PARANOID_NETWORK
           fi
