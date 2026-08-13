@@ -90,6 +90,9 @@ jobs:
           elif [ "${{ inputs.kernelsu_variant }}" == "Official" ]; then
             echo "This is the Official"
             git clone https://github.com/tiann/KernelSU.git KernelSU
+          elif [ "${{ inputs.kernelsu_variant }}" == "XXKSU" ]; then
+            echo "This is the XXKSU variant"
+            git clone https://github.com/backslashxx/KernelSU.git KernelSU
           else
             echo "Unknown variant"
             exit 1
@@ -111,6 +114,8 @@ jobs:
           elif [ "${{ inputs.kernelsu_variant }}" == "Official" ]; then
             KSU_VERSION=$((20000 + KSU_GIT_VERSION))
           elif [ "${{ inputs.kernelsu_variant }}" == "Next" ]; then
+            KSU_VERSION=$((30000 + KSU_GIT_VERSION))
+          elif [ "${{ inputs.kernelsu_variant }}" == "XXKSU" ]; then
             KSU_VERSION=$((30000 + KSU_GIT_VERSION))
           fi
           echo $KSU_VERSION
@@ -159,6 +164,11 @@ jobs:
             REPO="KernelSU-Next/KernelSU-Next"
             KSUM="manager"
             BRANCH="dev"
+          elif [ "${{ inputs.kernelsu_variant }}" == "XXKSU" ]; then
+            echo "XXKSU..."
+            REPO="backslashxx/KernelSU"
+            KSUM="manager"
+            BRANCH="master"
           elif [ "${{ inputs.kernelsu_variant }}" == "SukiSU" ]; then
             echo "SukiSU..."
             REPO="SukiSU-Ultra/SukiSU-Ultra"
@@ -199,6 +209,7 @@ jobs:
               "ReSukiSU") echo $((30700 + git_version)) ;;
               "Official") echo $((20000 + git_version)) ;;
               "Next") echo $((30000 + git_version)) ;;
+              "XXKSU") echo $((30000 + git_version)) ;;
               *) return 1 ;;
             esac
           }

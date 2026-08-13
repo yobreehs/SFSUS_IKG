@@ -13,11 +13,12 @@ on:
         type: choice
         options:
           - Official
-          #- Next
+          - Next
           - SukiSU
           - SukiSU(40726)
           - SukiSU(40548)
           - ReSukiSU
+          - XXKSU
         default: ReSukiSU
       version:
         description: "自定义版本名 (可选)"

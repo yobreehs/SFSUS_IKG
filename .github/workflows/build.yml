@@ -430,6 +430,9 @@ jobs:
             "Next")
               BRANCH=""
               ;;
+            "XXKSU")
+              BRANCH=""
+              ;;
             *)
               if [ -z "$LEGACY_SUKISU_CONFIG" ] || [ ! -f "$LEGACY_SUKISU_CONFIG" ]; then
                 echo "Unknown variant: $variant_input" >&2
@@ -481,6 +484,20 @@ jobs:
             "Next")
               echo "Adding KernelSU-Next..."
               curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/refs/heads/dev/kernel/setup.sh" | bash -s dev_susfs
+              ;;
+            "XXKSU")
+              echo "Adding XXKSU (backslashxx/kernelsu)..."
+              curl -LSs "https://raw.githubusercontent.com/backslashxx/kernelsu/master/kernel/setup.sh" | bash
+
+              cd KernelSU
+              KSU_GIT_VERSION=$(git rev-list --count HEAD)
+              KSU_VERSION=$((30000 + KSU_GIT_VERSION))
+              echo "KSU_VERSION=$KSU_VERSION" >> $GITHUB_ENV
+
+              if [ -f "kernel/Makefile" ]; then
+                sed -i "s/-DKSU_VERSION=[0-9]*/-DKSU_VERSION=${KSU_VERSION}/" kernel/Makefile
+              fi
+              cd ..
               ;;
             "SukiSU")
               echo "Adding ${{ inputs.ksu_variant }}..."
@@ -642,6 +659,13 @@ jobs:
               ;;
             "Next"|"SukiSU"|"SukiSU(40726)"|"SukiSU(40548)"|"ReSukiSU")
               echo "Next/SukiSU/SukiSU(40726)/SukiSU(40548)/ReSukiSU use built-in SUSFS support"
+              ;;
+            "XXKSU")
+              echo "XXKSU + SUSFS: applying 10_enable_susfs_for_ksu.patch with --forward (XXKSU unity-build; may be incomplete)"
+              cd ./KernelSU
+              cp $SUSFS4KSU/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch ./
+              patch -p1 --forward < 10_enable_susfs_for_ksu.patch || true
+              cd ..
               ;;
           esac
 
@@ -811,7 +835,7 @@ jobs:
             fi
           fi
 
-          if [ "${{ inputs.ksu_variant }}" == "Official" ] || [ "${{ inputs.ksu_variant }}" == "Next" ] || [ "${{ inputs.ksu_variant }}" == "SukiSU" ] || [ "${{ inputs.ksu_variant }}" == "SukiSU(40726)" ] || [ "${{ inputs.ksu_variant }}" == "SukiSU(40548)" ] || [ "${{ inputs.ksu_variant }}" == "ReSukiSU" ]; then
+          if [ "${{ inputs.ksu_variant }}" == "Official" ] || [ "${{ inputs.ksu_variant }}" == "Next" ] || [ "${{ inputs.ksu_variant }}" == "SukiSU" ] || [ "${{ inputs.ksu_variant }}" == "SukiSU(40726)" ] || [ "${{ inputs.ksu_variant }}" == "SukiSU(40548)" ] || [ "${{ inputs.ksu_variant }}" == "ReSukiSU" ] || [ "${{ inputs.ksu_variant }}" == "XXKSU" ]; then
             fix_namespace_susfs_mount_decls() {
               local label="$1"
               local marker_pattern="$2"
