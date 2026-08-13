@@ -957,11 +957,19 @@ jobs:
         if: inputs.use_bbrv3
         working-directory: ${{ env.KERNEL_ROOT }}/common
         run: |
-          echo "Applying BBRv3 TCP congestion control backport (android14-6.1)..."
+          echo "Applying BBRv3 TCP congestion control backport..."
           if [[ "${{ inputs.android_version }}" == "android14" && "${{ inputs.kernel_version }}" == "6.1" ]]; then
             PATCH="$GITHUB_WORKSPACE/.github/patches/bbrv3/0001-net-tcp-backport-BBRv3-to-android14-6.1.patch"
+          elif [[ "${{ inputs.android_version }}" == "android12" && "${{ inputs.kernel_version }}" == "5.10" ]]; then
+            # Two variants cover the 5.10 matrix: deprecated 2025-02/2025-05
+            # branches (SUBLEVEL 233/236) need the 2025-06 context, while the
+            # 2025-09 (240) and lts (X) branches use the lts context.
+            case "${{ inputs.os_patch_level }}" in
+              "2025-02"|"2025-05"|"2025-06") PATCH="$GITHUB_WORKSPACE/.github/patches/bbrv3/0001-net-tcp-backport-BBRv3-to-android12-5.10-2025-06.patch" ;;
+              *) PATCH="$GITHUB_WORKSPACE/.github/patches/bbrv3/0001-net-tcp-backport-BBRv3-to-android12-5.10-lts.patch" ;;
+            esac
           else
-            echo "::warning::BBRv3 is only available for android14-6.1 in this repo; skipping."
+            echo "::warning::BBRv3 is only available for android14-6.1 and android12-5.10 in this repo; skipping."
             exit 0
           fi
 
@@ -986,15 +994,19 @@ jobs:
           # literal "module_outs = [" in BUILD.bazel for GKI targets), so the
           # three modules must be declared there. Only do this when BBRv3 is
           # enabled: listing a module that is not built also fails the build.
-          if grep -qF '"net/ipv4/tcp_bic.ko"' modules.bzl; then
-            echo "modules.bzl already declares BBRv3 TCP CC modules"
-          else
-            perl -0pi -e 's/(    "net\/ieee802154\/ieee802154_socket.ko",\n)/$1    "net\/ipv4\/tcp_bic.ko",\n    "net\/ipv4\/tcp_htcp.ko",\n    "net\/ipv4\/tcp_westwood.ko",\n/' modules.bzl
+          # This only applies to the 6.1 Kleaf layout; on 5.10 the module list
+          # lives in the build system differently (verified clean for 5.10).
+          if [[ "${{ inputs.android_version }}" == "android14" && "${{ inputs.kernel_version }}" == "6.1" ]]; then
             if grep -qF '"net/ipv4/tcp_bic.ko"' modules.bzl; then
-              echo "Declared tcp_bic/tcp_htcp/tcp_westwood in modules.bzl"
+              echo "modules.bzl already declares BBRv3 TCP CC modules"
             else
-              echo "::error::Failed to declare BBRv3 TCP CC modules in modules.bzl"
-              exit 1
+              perl -0pi -e 's/(    "net\/ieee802154\/ieee802154_socket.ko",\n)/$1    "net\/ipv4\/tcp_bic.ko",\n    "net\/ipv4\/tcp_htcp.ko",\n    "net\/ipv4\/tcp_westwood.ko",\n/' modules.bzl
+              if grep -qF '"net/ipv4/tcp_bic.ko"' modules.bzl; then
+                echo "Declared tcp_bic/tcp_htcp/tcp_westwood in modules.bzl"
+              else
+                echo "::error::Failed to declare BBRv3 TCP CC modules in modules.bzl"
+                exit 1
+              fi
             fi
           fi
 
