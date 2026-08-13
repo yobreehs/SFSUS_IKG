@@ -159,6 +159,7 @@ jobs:
       use_kpm: ${{ inputs.use_kpm }}
       use_rekernel: ${{ inputs.use_rekernel }}
       cve_2026_43499_patch: ${{ inputs.cve_2026_43499_patch }}
+      use_bbrv3: ${{ inputs.use_bbrv3 }}
       mount_hiding: ${{ inputs.mount_hiding }}
       droidspaces: ${{ inputs.droidspaces }}
       artifact_upload_mode: "Upload all"
