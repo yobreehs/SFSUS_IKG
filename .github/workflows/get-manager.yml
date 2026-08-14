@@ -369,7 +369,7 @@ jobs:
 
       - name: 添加 NoMount 模块
         id: add_nomount
-        if: inputs.mount_hiding == 'nomount'
+        if: inputs.mount_hiding == 'nomount' || inputs.mount_hiding == 'nomount(hookless)'
         continue-on-error: true
         run: |
           echo "下载 NoMount 模块 (latest CI from maxsteeel/nomount)..."

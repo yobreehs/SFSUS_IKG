@@ -275,7 +275,7 @@ jobs:
           fi
 
       - name: Apply NoMount (nomount) path redirection patches
-        if: inputs.mount_hiding == 'nomount'
+        if: inputs.mount_hiding == 'nomount' || inputs.mount_hiding == 'nomount(hookless)'
         run: |
           echo "Applying NoMount (nomount) path redirection subsystem..."
           cd "$CONFIG"
@@ -285,10 +285,15 @@ jobs:
           # fs/Makefile need the hook-up, no fs/*.c edits required anymore.
           patch -p1 --fuzz=0 < $GITHUB_WORKSPACE/.github/patches/nomount/nomount_6.1_kernel_integration.patch
           mkdir -p ./fs/nomount
-          cp $GITHUB_WORKSPACE/.github/patches/nomount/src/nomount.c ./fs/nomount/
-          cp $GITHUB_WORKSPACE/.github/patches/nomount/src/nomount.h ./fs/nomount/
-          cp $GITHUB_WORKSPACE/.github/patches/nomount/src/Kconfig ./fs/nomount/
-          cp $GITHUB_WORKSPACE/.github/patches/nomount/src/Makefile ./fs/nomount/
+          NOMOUNT_SRC="$GITHUB_WORKSPACE/.github/patches/nomount/src"
+          if [ "${{ inputs.mount_hiding }}" == "nomount(hookless)" ]; then
+            echo "Using NoMount experimental/hookless driver (shmem-mmap proxy)..."
+            NOMOUNT_SRC="$GITHUB_WORKSPACE/.github/patches/nomount/src-hookless"
+          fi
+          cp $NOMOUNT_SRC/nomount.c ./fs/nomount/
+          cp $NOMOUNT_SRC/nomount.h ./fs/nomount/
+          cp $NOMOUNT_SRC/Kconfig ./fs/nomount/
+          cp $NOMOUNT_SRC/Makefile ./fs/nomount/
           echo "CONFIG_NOMOUNT=y" >> ./arch/arm64/configs/$DEFCONFIG
           echo "CONFIG_KEYS=y" >> ./arch/arm64/configs/$DEFCONFIG
           echo "NoMount enabled."
@@ -348,7 +353,7 @@ jobs:
           fi
 
       - name: Enable syscall tracepoints for the nomount hook path
-        if: inputs.mount_hiding == 'nomount' && inputs.codename == 'tegu'
+        if: (inputs.mount_hiding == 'nomount' || inputs.mount_hiding == 'nomount(hookless)') && inputs.codename == 'tegu'
         run: |
           echo "Changing to configuration directory: $CONFIG..."
           cd "$CONFIG"

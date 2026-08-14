@@ -93,6 +93,7 @@ on:
         options:
           - "susfs"
           - "nomount"
+          - "nomount(hookless)"
           - "none"
         default: "susfs"
   workflow_call:
@@ -188,7 +189,8 @@ jobs:
       use_bbrv3: ${{ inputs.use_bbrv3 }}
       supp_op: false
       enable_susfs: ${{ inputs.mount_hiding == 'susfs' }}
-      enable_nomount: ${{ inputs.mount_hiding == 'nomount' }}
+      enable_nomount: ${{ inputs.mount_hiding == 'nomount' || inputs.mount_hiding == 'nomount(hookless)' }}
+      nomount_variant: ${{ contains(inputs.mount_hiding, 'hookless') && 'hookless' || 'dev' }}
       droidspaces: ${{ inputs.droidspaces || 'off' }}
       droidspaces_ntsync: ${{ inputs.droidspaces_ntsync || false }}
       artifact_upload_mode: ${{ inputs.artifact_upload_mode }}

@@ -107,6 +107,7 @@ on:
         options:
           - "susfs"
           - "nomount"
+          - "nomount(hookless)"
           - "none"
         default: "susfs"
 
