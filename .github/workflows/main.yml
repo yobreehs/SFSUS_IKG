@@ -45,15 +45,21 @@ on:
           - Next
           - XXKSU
         default: ReSukiSU
-      mount_hiding:
-        description: "Mount hiding engine (SUSFS / NoMount / none)"
+      susfs:
+        description: "SUSFS mount hiding"
         type: choice
         options:
-          - "susfs"
+          - "enabled"
+          - "disabled"
+        default: "enabled"
+      nomount:
+        description: "NoMount mount hiding"
+        type: choice
+        options:
           - "nomount"
           - "nomount(hookless)"
-          - "none"
-        default: "susfs"
+          - "disabled"
+        default: "disabled"
 
       # ==================== Optional configuration ====================
       version:
@@ -149,7 +155,8 @@ jobs:
     secrets: inherit
     with:
       kernelsu_variant: ${{ inputs.kernelsu_variant }}
-      mount_hiding: ${{ inputs.mount_hiding }}
+      susfs: ${{ inputs.susfs || 'enabled' }}
+      nomount: ${{ inputs.nomount || 'disabled' }}
 
   # ==================== Android 12 - 5.10 build ====================
   build-a12-5-10:
@@ -166,7 +173,8 @@ jobs:
       use_rekernel: ${{ inputs.use_rekernel }}
       cve_2026_43499_patch: ${{ inputs.cve_2026_43499_patch }}
       use_bbrv3: ${{ inputs.use_bbrv3 }}
-      mount_hiding: ${{ inputs.mount_hiding }}
+      susfs: ${{ inputs.susfs || 'enabled' }}
+      nomount: ${{ inputs.nomount || 'disabled' }}
       use_vpnhide: ${{ inputs.use_vpnhide }}
       droidspaces: ${{ inputs.droidspaces }}
       artifact_upload_mode: "Upload all"
@@ -187,7 +195,8 @@ jobs:
       use_kpm: ${{ inputs.use_kpm }}
       use_rekernel: ${{ inputs.use_rekernel }}
       cve_2026_43499_patch: ${{ inputs.cve_2026_43499_patch }}
-      mount_hiding: ${{ inputs.mount_hiding }}
+      susfs: ${{ inputs.susfs || 'enabled' }}
+      nomount: ${{ inputs.nomount || 'disabled' }}
       use_vpnhide: ${{ inputs.use_vpnhide }}
 
       droidspaces: ${{ inputs.droidspaces }}
@@ -211,7 +220,8 @@ jobs:
       cve_2026_43499_patch: ${{ inputs.cve_2026_43499_patch }}
 
       use_bbrv3: ${{ inputs.use_bbrv3 }}
-      mount_hiding: ${{ inputs.mount_hiding }}
+      susfs: ${{ inputs.susfs || 'enabled' }}
+      nomount: ${{ inputs.nomount || 'disabled' }}
       use_vpnhide: ${{ inputs.use_vpnhide }}
       droidspaces: ${{ inputs.droidspaces }}
       artifact_upload_mode: "Upload all"
@@ -232,7 +242,8 @@ jobs:
       use_kpm: ${{ inputs.use_kpm }}
       use_rekernel: ${{ inputs.use_rekernel }}
       cve_2026_43499_patch: ${{ inputs.cve_2026_43499_patch }}
-      mount_hiding: ${{ inputs.mount_hiding }}
+      susfs: ${{ inputs.susfs || 'enabled' }}
+      nomount: ${{ inputs.nomount || 'disabled' }}
       use_vpnhide: ${{ inputs.use_vpnhide }}
 
       droidspaces: ${{ inputs.droidspaces }}
@@ -254,7 +265,8 @@ jobs:
       use_kpm: ${{ inputs.use_kpm }}
       use_rekernel: ${{ inputs.use_rekernel }}
       cve_2026_43499_patch: ${{ inputs.cve_2026_43499_patch }}
-      mount_hiding: ${{ inputs.mount_hiding }}
+      susfs: ${{ inputs.susfs || 'enabled' }}
+      nomount: ${{ inputs.nomount || 'disabled' }}
       use_vpnhide: ${{ inputs.use_vpnhide }}
 
       droidspaces: ${{ inputs.droidspaces }}
@@ -405,7 +417,7 @@ jobs:
           case "${{ inputs.kernelsu_variant }}" in
             "Official") BRANCH="main" ;;
             "SukiSU")
-              if [ "${{ inputs.mount_hiding }}" != "susfs" ]; then
+              if [ "${{ inputs.susfs }}" != "enabled" ]; then
                 BRANCH="main"
               else
                 BRANCH="builtin"

@@ -9,11 +9,16 @@ on:
       kernelsu_variant:
         required: true
         type: string
-      mount_hiding:
-        description: "Mount hiding engine: susfs / nomount / none. Determines which companion module to attach."
+      susfs:
+        description: "SUSFS module attachment: enabled / disabled"
         required: false
         type: string
-        default: "susfs"
+        default: "enabled"
+      nomount:
+        description: "NoMount module attachment: nomount / nomount(hookless) / disabled"
+        required: false
+        type: string
+        default: "disabled"
     outputs:
       susVer:
         description: "The fetched SUSFS version number"
@@ -314,7 +319,7 @@ jobs:
 
       - name: 添加 SUSFS 模块
         id: add_SUSFS
-        if: inputs.mount_hiding == 'susfs'
+        if: inputs.susfs == 'enabled'
         continue-on-error: true
         run: |
           case "${{ inputs.kernelsu_variant }}" in
@@ -369,7 +374,7 @@ jobs:
 
       - name: 添加 NoMount 模块
         id: add_nomount
-        if: inputs.mount_hiding == 'nomount' || inputs.mount_hiding == 'nomount(hookless)'
+        if: inputs.nomount != 'disabled'
         continue-on-error: true
         run: |
           echo "下载 NoMount 模块 (latest CI from maxsteeel/nomount)..."
