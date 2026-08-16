@@ -77,6 +77,11 @@ on:
         required: false
         type: boolean
         default: false
+      use_vpnhide:
+        description: "Enable VPNHide Next (soranerai/vpnhide_next_backend) LSM-based VPN hiding"
+        required: false
+        type: boolean
+        default: false
       supp_op:
         required: false
         type: boolean
@@ -1040,6 +1045,23 @@ jobs:
           fi
 
           echo "BBRv3 enabled."
+
+      - name: Apply VPNHide Next patches
+        if: inputs.use_vpnhide
+        working-directory: ${{ env.KERNEL_ROOT }}/common
+        run: |
+          echo "Applying VPNHide Next (soranerai/vpnhide_next_backend) LSM-based VPN hiding..."
+          VERSION="${{ inputs.android_version }}-${{ inputs.kernel_version }}"
+          APPLY="$GITHUB_WORKSPACE/.github/patches/vpnhide/scripts/apply.sh"
+          if [ ! -d "$GITHUB_WORKSPACE/.github/patches/vpnhide/versions/$VERSION" ]; then
+            echo "::error::VPNHide: no patch set for $VERSION in .github/patches/vpnhide/versions/ (supported: $(ls $GITHUB_WORKSPACE/.github/patches/vpnhide/versions/))"
+            exit 1
+          fi
+          bash "$APPLY" "$PWD" "$VERSION" || { echo "::error::VPNHide apply.sh failed"; exit 1; }
+          grep -q '^CONFIG_VPNHIDE=y' arch/arm64/configs/gki_defconfig \
+            && sed -i 's/^CONFIG_VPNHIDE=.*/CONFIG_VPNHIDE=y/' arch/arm64/configs/gki_defconfig \
+            || echo 'CONFIG_VPNHIDE=y' >> arch/arm64/configs/gki_defconfig
+          echo "VPNHide enabled."
 
       - name: Apply NoMount patch
         if: inputs.enable_nomount

@@ -29,6 +29,16 @@ on:
           - ReSukiSU
           - XXKSU
         default: ReSukiSU
+      mount_hiding:
+        description: "Mount hiding engine"
+        required: false
+        type: choice
+        options:
+          - "susfs"
+          - "nomount"
+          - "nomount(hookless)"
+          - "none"
+        default: "susfs"
       version:
         description: "Custom version name (optional)"
         required: false
@@ -95,16 +105,11 @@ on:
         required: false
         type: boolean
         default: false
-      mount_hiding:
-        description: "Mount hiding engine"
+      use_vpnhide:
+        description: "Enable VPNHide Next (LSM-based VPN hiding)"
         required: false
-        type: choice
-        options:
-          - "susfs"
-          - "nomount"
-          - "nomount(hookless)"
-          - "none"
-        default: "susfs"
+        type: boolean
+        default: false
   workflow_call:
     inputs:
       kernel_source:
@@ -163,6 +168,10 @@ on:
         required: false
         type: boolean
         default: false
+      use_vpnhide:
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   build-kernels-a14-6-1:
@@ -200,6 +209,7 @@ jobs:
       enable_nomount: ${{ inputs.mount_hiding == 'nomount' || inputs.mount_hiding == 'nomount(hookless)' }}
       nomount_variant: ${{ contains(inputs.mount_hiding, 'hookless') && 'hookless' || 'dev' }}
       use_bbrv3: ${{ inputs.use_bbrv3 }}
+      use_vpnhide: ${{ inputs.use_vpnhide }}
       droidspaces: ${{ inputs.droidspaces || 'off' }}
       droidspaces_ntsync: ${{ inputs.droidspaces_ntsync || false }}
       artifact_upload_mode: ${{ inputs.artifact_upload_mode }}

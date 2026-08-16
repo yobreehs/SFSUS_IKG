@@ -45,6 +45,15 @@ on:
           - Next
           - XXKSU
         default: ReSukiSU
+      mount_hiding:
+        description: "Mount hiding engine (SUSFS / NoMount / none)"
+        type: choice
+        options:
+          - "susfs"
+          - "nomount"
+          - "nomount(hookless)"
+          - "none"
+        default: "susfs"
 
       # ==================== Optional configuration ====================
       version:
@@ -101,15 +110,10 @@ on:
         description: "Enable BBRv3 TCP congestion control backport (Android 14 - 6.1 build; GKI common path only, warning no-op on Sultan path)"
         type: boolean
         default: false
-      mount_hiding:
-        description: "Mount hiding engine (SUSFS / NoMount / none) for Android 14 - 6.1 builds"
-        type: choice
-        options:
-          - "susfs"
-          - "nomount"
-          - "nomount(hookless)"
-          - "none"
-        default: "susfs"
+      use_vpnhide:
+        description: "Enable VPNHide Next (LSM-based VPN hiding)"
+        type: boolean
+        default: false
 
       # ==================== Build version selection ====================
       build_a12_5_10:
@@ -163,6 +167,7 @@ jobs:
       cve_2026_43499_patch: ${{ inputs.cve_2026_43499_patch }}
       use_bbrv3: ${{ inputs.use_bbrv3 }}
       mount_hiding: ${{ inputs.mount_hiding }}
+      use_vpnhide: ${{ inputs.use_vpnhide }}
       droidspaces: ${{ inputs.droidspaces }}
       artifact_upload_mode: "Upload all"
       droidspaces_ntsync: ${{ inputs.droidspaces_ntsync }}
@@ -183,6 +188,7 @@ jobs:
       use_rekernel: ${{ inputs.use_rekernel }}
       cve_2026_43499_patch: ${{ inputs.cve_2026_43499_patch }}
       mount_hiding: ${{ inputs.mount_hiding }}
+      use_vpnhide: ${{ inputs.use_vpnhide }}
 
       droidspaces: ${{ inputs.droidspaces }}
       artifact_upload_mode: "Upload all"
@@ -206,6 +212,7 @@ jobs:
 
       use_bbrv3: ${{ inputs.use_bbrv3 }}
       mount_hiding: ${{ inputs.mount_hiding }}
+      use_vpnhide: ${{ inputs.use_vpnhide }}
       droidspaces: ${{ inputs.droidspaces }}
       artifact_upload_mode: "Upload all"
       droidspaces_ntsync: ${{ inputs.droidspaces_ntsync }}
@@ -226,6 +233,7 @@ jobs:
       use_rekernel: ${{ inputs.use_rekernel }}
       cve_2026_43499_patch: ${{ inputs.cve_2026_43499_patch }}
       mount_hiding: ${{ inputs.mount_hiding }}
+      use_vpnhide: ${{ inputs.use_vpnhide }}
 
       droidspaces: ${{ inputs.droidspaces }}
       artifact_upload_mode: "Upload all"
@@ -247,6 +255,7 @@ jobs:
       use_rekernel: ${{ inputs.use_rekernel }}
       cve_2026_43499_patch: ${{ inputs.cve_2026_43499_patch }}
       mount_hiding: ${{ inputs.mount_hiding }}
+      use_vpnhide: ${{ inputs.use_vpnhide }}
 
       droidspaces: ${{ inputs.droidspaces }}
       artifact_upload_mode: "Upload all"
