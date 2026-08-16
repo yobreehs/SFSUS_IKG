@@ -124,7 +124,9 @@ jobs:
           echo "Build time       : ${{ inputs.build_time }}"
           echo "SUSFS enabled    : ${{ inputs.enable_susfs }}"
           echo "NoMount enabled  : ${{ inputs.enable_nomount }}"
+          echo "NoMount variant  : ${{ inputs.nomount_variant }}"
           echo "BBRv3 enabled    : ${{ inputs.use_bbrv3 }}"
+          echo "VPNHide enabled  : ${{ inputs.use_vpnhide }}"
           echo "ZRAM boost       : ${{ inputs.use_zram }}"
           echo "BBG patch        : ${{ inputs.use_bbg }}"
           echo "KPM support      : ${{ inputs.use_kpm }}"
@@ -1068,6 +1070,7 @@ jobs:
           # transport): it no longer edits fs/*.c, so SUSFS and NoMount can be
           # applied together (SUSFS adds its own fs/*.c hooks). Runtime
           # interaction is untested -- both act on the VFS layer.
+          echo "::notice::NoMount variant selected: ${{ inputs.nomount_variant }} (dev = current upstream; hookless = experimental shmem-mmap proxy)"
           case "${{ inputs.kernel_version }}" in
             5.10) NOMOUNT_PATCH="$GITHUB_WORKSPACE/.github/patches/nomount/nomount_5.10_kernel_integration.patch" ;;
             5.15) NOMOUNT_PATCH="$GITHUB_WORKSPACE/.github/patches/nomount/nomount_5.15_kernel_integration.patch" ;;
@@ -1083,6 +1086,8 @@ jobs:
           if [ "${{ inputs.nomount_variant }}" == "hookless" ]; then
             echo "Using NoMount experimental/hookless driver (shmem-mmap proxy)..."
             NOMOUNT_SRC="$GITHUB_WORKSPACE/.github/patches/nomount/src-hookless"
+          else
+            echo "Using NoMount upstream dev driver (key-based add_key)..."
           fi
           cp $NOMOUNT_SRC/nomount.c ./fs/nomount/
           cp $NOMOUNT_SRC/nomount.h ./fs/nomount/
@@ -1814,5 +1819,44 @@ jobs:
         with:
           name: ${{ inputs.ksu_variant }}_kernel-${{ env.CONFIG }}-Rejects
           path: patch-rejects/
+          if-no-files-found: ignore
+          compression-level: 9
+
+      - name: Download VPNHide Next companion artifacts
+        if: inputs.use_vpnhide
+        run: |
+          set -e
+          echo "Fetching latest vpnhide-apk + vpnhide-bridge from soranerai/vpnhide_next CI..."
+          BUILD_ID=$(curl -s "https://api.github.com/repos/soranerai/vpnhide_next/actions/runs?status=success&per_page=1" \
+            | jq -r '.workflow_runs[0].id')
+          if [ -z "$BUILD_ID" ] || [ "$BUILD_ID" == "null" ]; then
+            echo "::warning::vpnhide_next CI run not found, skipping companion artifacts"
+            exit 0
+          fi
+          mkdir -p vpnhide-companion
+          for ART in vpnhide-apk vpnhide-bridge; do
+            URL=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              "https://api.github.com/repos/soranerai/vpnhide_next/actions/runs/$BUILD_ID/artifacts" \
+              | jq -r --arg a "$ART" '.artifacts[] | select(.name == $a) | .archive_download_url' | head -1)
+            if [ -z "$URL" ] || [ "$URL" == "null" ]; then
+              echo "::warning::vpnhide artifact $ART not found in run $BUILD_ID, skipping"
+              continue
+            fi
+            echo "Downloading $ART..."
+            curl -sL -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" -o "$ART.zip" "$URL"
+            mkdir -p "vpnhide-companion/$ART"
+            cd "vpnhide-companion/$ART"
+            unzip -o -q "../../$ART.zip"
+            cd ../..
+            rm -f "$ART.zip"
+          done
+          ls -la vpnhide-companion/
+
+      - name: Upload VPNHide Next companion artifacts
+        if: inputs.use_vpnhide
+        uses: actions/upload-artifact@v6
+        with:
+          name: ${{ inputs.ksu_variant }}-vpnhide-companion
+          path: vpnhide-companion/
           if-no-files-found: ignore
           compression-level: 9

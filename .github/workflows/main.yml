@@ -658,9 +658,11 @@ jobs:
           apk_count=$(find ./downloaded-artifacts -type f -name "*.apk" | wc -l || true)
           sus_count=$(find ./downloaded-artifacts -type f -path "./downloaded-artifacts/susfs-*/*" | wc -l || true)
           nomount_count=$(find ./downloaded-artifacts -type f -path "./downloaded-artifacts/nomount-*/*" | wc -l || true)
+          vpnhide_count=$(find ./downloaded-artifacts -type f -path "./downloaded-artifacts/*vpnhide-companion/*" | wc -l || true)
           echo "APK files: ${apk_count}"
           echo "SUSFS files: ${sus_count}"
           echo "NoMount files: ${nomount_count}"
+          echo "VPNHide files: ${vpnhide_count}"
           find ./downloaded-artifacts -type f -name "*.apk" -print0 | \
           while IFS= read -r -d '' f; do
             gh release upload "$NEW_TAG" "$f" || true
@@ -670,6 +672,10 @@ jobs:
             gh release upload "$NEW_TAG" "$f" || true
           done
           find ./downloaded-artifacts -type f -path "./downloaded-artifacts/nomount-*/*" -print0 | \
+          while IFS= read -r -d '' f; do
+            gh release upload "$NEW_TAG" "$f" || true
+          done
+          find ./downloaded-artifacts -type f -path "./downloaded-artifacts/*vpnhide-companion/*" -print0 | \
           while IFS= read -r -d '' f; do
             gh release upload "$NEW_TAG" "$f" || true
           done
