@@ -671,11 +671,7 @@ jobs:
               echo "Next/SukiSU/SukiSU(40726)/SukiSU(40548)/ReSukiSU use built-in SUSFS support"
               ;;
             "XXKSU")
-              echo "XXKSU + SUSFS: applying 10_enable_susfs_for_ksu.patch with --forward (XXKSU unity-build; may be incomplete)"
-              cd ./KernelSU
-              cp $SUSFS4KSU/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch ./
-              patch -p1 --forward < 10_enable_susfs_for_ksu.patch || true
-              cd ..
+              echo "::warning::SUSFS patch is incompatible with XXKSU (unity-build kernel/Makefile, no kernel/Kbuild). Skipping SUSFS; kernel builds without SUSFS hooks."
               ;;
           esac
 
