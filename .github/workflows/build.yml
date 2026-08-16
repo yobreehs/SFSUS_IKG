@@ -1068,10 +1068,10 @@ jobs:
         working-directory: ${{ env.KERNEL_ROOT }}/common
         run: |
           echo "Applying NoMount (nomount) path redirection subsystem..."
-          if [[ "${{ inputs.enable_susfs }}" == "true" ]]; then
-            echo "::error::enable_nomount and enable_susfs are mutually exclusive: SUSFS and NoMount hook the same VFS functions. Pass a single mount hiding engine."
-            exit 1
-          fi
+          # NoMount v12 is self-contained (fs/nomount/, key-based add_key
+          # transport): it no longer edits fs/*.c, so SUSFS and NoMount can be
+          # applied together (SUSFS adds its own fs/*.c hooks). Runtime
+          # interaction is untested -- both act on the VFS layer.
           case "${{ inputs.kernel_version }}" in
             5.10) NOMOUNT_PATCH="$GITHUB_WORKSPACE/.github/patches/nomount/nomount_5.10_kernel_integration.patch" ;;
             5.15) NOMOUNT_PATCH="$GITHUB_WORKSPACE/.github/patches/nomount/nomount_5.15_kernel_integration.patch" ;;
