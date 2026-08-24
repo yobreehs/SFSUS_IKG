@@ -69,7 +69,7 @@ on:
         type: boolean
         default: false
       nomount_variant:
-        description: "NoMount driver source: dev (current upstream) or hookless (experimental shmem-mmap proxy)"
+        description: "NoMount driver source: dev or hookless"
         required: false
         type: string
         default: "dev"
@@ -1070,7 +1070,7 @@ jobs:
           # transport): it no longer edits fs/*.c, so SUSFS and NoMount can be
           # applied together (SUSFS adds its own fs/*.c hooks). Runtime
           # interaction is untested -- both act on the VFS layer.
-          echo "::notice::NoMount variant selected: ${{ inputs.nomount_variant }} (dev = current upstream; hookless = experimental shmem-mmap proxy)"
+          echo "::notice::NoMount variant selected: ${{ inputs.nomount_variant }}"
           case "${{ inputs.kernel_version }}" in
             5.10) NOMOUNT_PATCH="$GITHUB_WORKSPACE/.github/patches/nomount/nomount_5.10_kernel_integration.patch" ;;
             5.15) NOMOUNT_PATCH="$GITHUB_WORKSPACE/.github/patches/nomount/nomount_5.15_kernel_integration.patch" ;;
@@ -1083,16 +1083,38 @@ jobs:
           patch -p1 --fuzz=0 < "$NOMOUNT_PATCH" || { echo "::error::NoMount patch failed to apply"; exit 1; }
           mkdir -p ./fs/nomount
           NOMOUNT_SRC="$GITHUB_WORKSPACE/.github/patches/nomount/src"
+          NOMOUNT_BRANCH="master"
           if [ "${{ inputs.nomount_variant }}" == "hookless" ]; then
-            echo "Using NoMount experimental/hookless driver (shmem-mmap proxy)..."
+            echo "Using NoMount hookless driver..."
             NOMOUNT_SRC="$GITHUB_WORKSPACE/.github/patches/nomount/src-hookless"
+            NOMOUNT_BRANCH="dev"
           else
-            echo "Using NoMount upstream dev driver (key-based add_key)..."
+            echo "Using NoMount dev driver..."
           fi
-          cp $NOMOUNT_SRC/nomount.c ./fs/nomount/
-          cp $NOMOUNT_SRC/nomount.h ./fs/nomount/
-          cp $NOMOUNT_SRC/Kconfig ./fs/nomount/
-          cp $NOMOUNT_SRC/Makefile ./fs/nomount/
+          # Fetch the current driver from the upstream repo so we don't have to
+          # re-bump the bundled copy on every upstream release. Fall back to the
+          # local snapshot if the network fetch fails.
+          if curl -fsSL --retry 3 --retry-delay 2 \
+               "https://raw.githubusercontent.com/maxsteeel/nomount/$NOMOUNT_BRANCH/kernel/src/nomount.c" \
+               -o ./fs/nomount/nomount.c; then
+            echo "Fetched nomount.c from maxsteeel/nomount@$NOMOUNT_BRANCH"
+            curl -fsSL --retry 3 --retry-delay 2 \
+              "https://raw.githubusercontent.com/maxsteeel/nomount/$NOMOUNT_BRANCH/kernel/src/nomount.h" \
+              -o ./fs/nomount/nomount.h
+            curl -fsSL --retry 3 --retry-delay 2 \
+              "https://raw.githubusercontent.com/maxsteeel/nomount/$NOMOUNT_BRANCH/kernel/src/Kconfig" \
+              -o ./fs/nomount/Kconfig
+            curl -fsSL --retry 3 --retry-delay 2 \
+              "https://raw.githubusercontent.com/maxsteeel/nomount/$NOMOUNT_BRANCH/kernel/src/Makefile" \
+              -o ./fs/nomount/Makefile
+            echo "NoMount driver fetched from upstream ($NOMOUNT_BRANCH)."
+          else
+            echo "::warning::Failed to fetch NoMount driver from upstream, using bundled snapshot."
+            cp $NOMOUNT_SRC/nomount.c ./fs/nomount/
+            cp $NOMOUNT_SRC/nomount.h ./fs/nomount/
+            cp $NOMOUNT_SRC/Kconfig ./fs/nomount/
+            cp $NOMOUNT_SRC/Makefile ./fs/nomount/
+          fi
           echo "CONFIG_NOMOUNT=y" >> arch/arm64/configs/gki_defconfig
           echo "CONFIG_KEYS=y" >> arch/arm64/configs/gki_defconfig
           echo "NoMount enabled."
@@ -1822,41 +1844,12 @@ jobs:
           if-no-files-found: ignore
           compression-level: 9
 
-      - name: Download VPNHide Next companion artifacts
-        if: inputs.use_vpnhide
-        run: |
-          set -e
-          echo "Fetching latest vpnhide-apk + vpnhide-bridge from soranerai/vpnhide_next CI..."
-          BUILD_ID=$(curl -s "https://api.github.com/repos/soranerai/vpnhide_next/actions/runs?status=success&per_page=1" \
-            | jq -r '.workflow_runs[0].id')
-          if [ -z "$BUILD_ID" ] || [ "$BUILD_ID" == "null" ]; then
-            echo "::warning::vpnhide_next CI run not found, skipping companion artifacts"
-            exit 0
-          fi
-          mkdir -p vpnhide-companion
-          for ART in vpnhide-apk vpnhide-bridge; do
-            URL=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-              "https://api.github.com/repos/soranerai/vpnhide_next/actions/runs/$BUILD_ID/artifacts" \
-              | jq -r --arg a "$ART" '.artifacts[] | select(.name == $a) | .archive_download_url' | head -1)
-            if [ -z "$URL" ] || [ "$URL" == "null" ]; then
-              echo "::warning::vpnhide artifact $ART not found in run $BUILD_ID, skipping"
-              continue
-            fi
-            echo "Downloading $ART..."
-            curl -sL -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" -o "$ART.zip" "$URL"
-            mkdir -p "vpnhide-companion/$ART"
-            cd "vpnhide-companion/$ART"
-            unzip -o -q "../../$ART.zip"
-            cd ../..
-            rm -f "$ART.zip"
-          done
-          ls -la vpnhide-companion/
-
-      - name: Upload VPNHide Next companion artifacts
-        if: inputs.use_vpnhide
+      - name: Upload patch reject files
+        if: always() && env.REJ_COUNT > 0
         uses: actions/upload-artifact@v6
         with:
-          name: ${{ inputs.ksu_variant }}-vpnhide-companion
-          path: vpnhide-companion/
+          name: ${{ inputs.ksu_variant }}_kernel-${{ env.CONFIG }}-Rejects
+          path: patch-rejects/
           if-no-files-found: ignore
           compression-level: 9
+

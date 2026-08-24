@@ -157,6 +157,7 @@ jobs:
       kernelsu_variant: ${{ inputs.kernelsu_variant }}
       susfs: ${{ inputs.susfs || 'enabled' }}
       nomount: ${{ inputs.nomount || 'disabled' }}
+      use_vpnhide: ${{ inputs.use_vpnhide || false }}
 
   # ==================== Android 12 - 5.10 build ====================
   build-a12-5-10:
