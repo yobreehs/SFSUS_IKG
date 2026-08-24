@@ -493,8 +493,10 @@ jobs:
               cd ..
               ;;
             "Next")
-              echo "Adding KernelSU-Next..."
-              curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/refs/heads/dev/kernel/setup.sh" | bash -s dev_susfs
+              echo "Adding KernelSU-Next (pershoot dev-susfs)..."
+              # SUSFS-enabled KernelSU-Next lives in pershoot's fork; the
+              # official KernelSU-Next repo dropped the dev_susfs branch.
+              curl -LSs "https://raw.githubusercontent.com/pershoot/KernelSU-Next/refs/heads/dev-susfs/kernel/setup.sh" | bash -s dev-susfs
               ;;
             "XXKSU")
               echo "Adding XXKSU (backslashxx/kernelsu)..."
