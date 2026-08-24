@@ -380,9 +380,12 @@ jobs:
       - name: 添加 NoMount 模块
         id: add_nomount
         if: inputs.nomount != 'disabled'
-        continue-on-error: true
         run: |
           echo "下载 NoMount 模块 (latest CI from maxsteeel/nomount)..."
+          case "${{ inputs.nomount }}" in
+            "nomount(hookless)") echo "::notice::NoMount module from branch: dev" ;;
+            *) echo "::notice::NoMount module from branch: master" ;;
+          esac
           BUILD_ID=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
           "https://api.github.com/repos/maxsteeel/nomount/actions/runs?status=success&per_page=1" |
           jq -r '.workflow_runs[0].id')
