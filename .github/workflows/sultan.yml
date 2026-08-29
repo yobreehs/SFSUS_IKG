@@ -36,7 +36,7 @@ on:
         type: string
         default: "enabled"
       nomount:
-        description: "NoMount mount hiding: nomount / nomount(hookless) / disabled"
+        description: "NoMount / Mountify mount hiding: nomount / nomount(hookless) / mountify / disabled"
         required: false
         type: string
         default: "disabled"
@@ -280,7 +280,7 @@ jobs:
           fi
 
       - name: Apply NoMount (nomount) path redirection patches
-        if: inputs.nomount != 'disabled'
+        if: inputs.nomount == 'nomount' || inputs.nomount == 'nomount(hookless)'
         run: |
           echo "Applying NoMount (nomount) path redirection subsystem..."
           cd "$CONFIG"
@@ -358,7 +358,7 @@ jobs:
           fi
 
       - name: Enable syscall tracepoints for the nomount hook path
-        if: inputs.nomount != 'disabled' && inputs.codename == 'tegu'
+        if: (inputs.nomount == 'nomount' || inputs.nomount == 'nomount(hookless)') && inputs.codename == 'tegu'
         run: |
           echo "Changing to configuration directory: $CONFIG..."
           cd "$CONFIG"

@@ -381,28 +381,35 @@ jobs:
         id: add_nomount
         if: inputs.nomount != 'disabled'
         run: |
-          echo "下载 NoMount 模块 (latest CI from maxsteeel/nomount)..."
-          case "${{ inputs.nomount }}" in
-            "nomount(hookless)") echo "::notice::NoMount module from branch: dev" ;;
-            *) echo "::notice::NoMount module from branch: master" ;;
-          esac
+          if [ "${{ inputs.nomount }}" == "mountify" ]; then
+            echo "下载 Mountify 模块 (latest CI from backslashxx/mountify)..."
+            echo "::notice::Attaching Mountify metamodule (OverlayFS)"
+            REPO="backslashxx/mountify"
+          else
+            echo "下载 NoMount 模块 (latest CI from maxsteeel/nomount)..."
+            case "${{ inputs.nomount }}" in
+              "nomount(hookless)") echo "::notice::NoMount module from branch: dev" ;;
+              *) echo "::notice::NoMount module from branch: master" ;;
+            esac
+            REPO="maxsteeel/nomount"
+          fi
           BUILD_ID=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-          "https://api.github.com/repos/maxsteeel/nomount/actions/runs?status=success&per_page=1" |
+          "https://api.github.com/repos/$REPO/actions/runs?status=success&per_page=1" |
           jq -r '.workflow_runs[0].id')
 
           if [ -z "$BUILD_ID" ] || [ "$BUILD_ID" == "null" ]; then
-            echo "::warning::NoMount module CI run not found, skipping module attachment"
+            echo "::warning::module CI run not found, skipping module attachment"
             exit 0
           fi
 
           ARTIFACTS=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-          "https://api.github.com/repos/maxsteeel/nomount/actions/runs/$BUILD_ID/artifacts")
+          "https://api.github.com/repos/$REPO/actions/runs/$BUILD_ID/artifacts")
 
           DOWNLOAD_URL=$(echo "$ARTIFACTS" | jq -r '.artifacts[0].archive_download_url')
           NAME=$(echo "$ARTIFACTS" | jq -r '.artifacts[0].name')
 
           if [ -z "$DOWNLOAD_URL" ] || [ "$DOWNLOAD_URL" == "null" ] || [ -z "$NAME" ] || [ "$NAME" == "null" ]; then
-            echo "::warning::NoMount module artifact not found, skipping"
+            echo "::warning::module artifact not found, skipping"
             exit 0
           fi
 

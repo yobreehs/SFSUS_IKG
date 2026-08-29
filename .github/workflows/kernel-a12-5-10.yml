@@ -29,12 +29,13 @@ on:
           - "disabled"
         default: "enabled"
       nomount:
-        description: "NoMount mount hiding"
+        description: "NoMount / Mountify mount hiding (metamodules)"
         required: false
         type: choice
         options:
           - "nomount"
           - "nomount(hookless)"
+          - "mountify"
           - "disabled"
         default: "disabled"
       version:
@@ -210,7 +211,7 @@ jobs:
       use_vpnhide: ${{ inputs.use_vpnhide }}
       supp_op: false
       enable_susfs: ${{ inputs.susfs == 'enabled' }}
-      enable_nomount: ${{ inputs.nomount != 'disabled' }}
+      enable_nomount: ${{ inputs.nomount == 'nomount' || inputs.nomount == 'nomount(hookless)' }}
       nomount_variant: ${{ contains(inputs.nomount, 'hookless') && 'hookless' || 'dev' }}
       droidspaces: ${{ inputs.droidspaces || 'off' }}
       droidspaces_ntsync: ${{ inputs.droidspaces_ntsync || false }}
