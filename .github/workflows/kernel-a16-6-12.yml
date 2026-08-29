@@ -57,12 +57,14 @@ on:
           - "enabled (开启)"
           - "patched (开启并修补，尚不支持)"
       droidspaces:
-        description: "Droidspaces 容器支持"
+        description: "Droidspaces container support"
         required: false
         type: choice
         options:
           - "off"
-          - "on"
+          - "678"
+          - "123"
+          - "345"
         default: "off"
       artifact_upload_mode:
         description: "构建产物上传模式"
@@ -99,6 +101,11 @@ on:
         default: false
       use_vpnhide:
         description: "Enable VPNHide Next (LSM-based VPN hiding)"
+        required: false
+        type: boolean
+        default: false
+      use_bbrv3:
+        description: "Enable BBRv3 TCP congestion control backport (android14-6.1 only; warning no-op on other kernels)"
         required: false
         type: boolean
         default: false
@@ -145,6 +152,10 @@ on:
         type: string
         default: "disabled"
       use_vpnhide:
+        required: false
+        type: boolean
+        default: false
+      use_bbrv3:
         required: false
         type: boolean
         default: false
@@ -210,6 +221,7 @@ jobs:
       enable_nomount: ${{ inputs.nomount == 'nomount' || inputs.nomount == 'nomount(hookless)' }}
       nomount_variant: ${{ contains(inputs.nomount, 'hookless') && 'hookless' || 'dev' }}
       use_vpnhide: ${{ inputs.use_vpnhide }}
+      use_bbrv3: ${{ inputs.use_bbrv3 }}
       droidspaces: ${{ inputs.droidspaces || 'off' }}
       droidspaces_ntsync: ${{ inputs.droidspaces_ntsync || false }}
       artifact_upload_mode: ${{ inputs.artifact_upload_mode }}
