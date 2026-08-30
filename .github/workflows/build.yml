@@ -329,6 +329,15 @@ jobs:
           $REPO --trace sync -c -j$(nproc --all) --no-tags --fail-fast
           echo "REMOTE_BRANCH=$REMOTE_BRANCH" >> $GITHUB_ENV
 
+      # Snapshot the pristine stock defconfig BEFORE any step modifies it
+      # (force-disable ZRAM, VPNHide, NoMount, NTSync, SUSFS config, ...).
+      # Build kernel diffs this baseline against the final defconfig to
+      # produce the ksu.fragment; if the baseline is taken too late, earlier
+      # edits leak into the baseline, never reach the fragment, and bazel's
+      # savedefconfig trim check fails with "does not match gki_defconfig".
+      - name: Back up baseline defconfig
+        run: cp "$DEFCONFIG" "$DEFCONFIG.orig"
+
       - name: Apply stock config spoofing
         run: |
           STOCK_SRC="$GITHUB_WORKSPACE/config/stock_defconfig"
@@ -543,30 +552,27 @@ jobs:
       # setup.sh pins its own zram/zsmalloc config, "disabled" here would otherwise be a
       # no-op instead of an actual disable. So explicitly force it off whenever the user
       # asked for it to be off, regardless of which variant is selected.
+      #
+      # NOTE on HOW it is forced off: lines are DELETED, never rewritten to
+      # "# CONFIG_X is not set". `make savedefconfig` (kernel_aarch64_config trim
+      # check) omits any option whose value equals its Kconfig default, so "not set"
+      # lines in defconfig/fragment get dropped by savedefconfig and the build fails
+      # with "savedefconfig does not match gki_defconfig". Deleting the line lets the
+      # option fall back to its default (n for ZRAM and friends) -- which is exactly
+      # what savedefconfig outputs, so the check passes.
       - name: Force-disable ZRAM config when use_zram is off
         if: ${{ !inputs.use_zram }}
         working-directory: ${{ env.KERNEL_ROOT }}
         run: |
           echo "use_zram is disabled -- forcing ZRAM config off regardless of what the stock/base defconfig already sets..."
-          # IMPORTANT: don't just replace an existing =y/=m line and stop there. The stock
-          # gki_defconfig (merged in later, at the bazel kernel_aarch64_config step) already
-          # ships CONFIG_ZRAM=m by default, and that line does NOT exist in our own
-          # $DEFCONFIG fragment at this point in the pipeline -- so a replace-only check finds
-          # nothing to replace and silently no-ops, leaving the stock CONFIG_ZRAM=m to win the
-          # merge. Always end up with an explicit "# CONFIG_X is not set" line in our fragment,
-          # appending it when no matching line is found, so it actually overrides the stock value.
-          for CFG in CONFIG_ZRAM CONFIG_ZSMALLOC CONFIG_ZRAM_DEF_COMP_LZ4KD CONFIG_ZRAM_DEF_COMP_LZ4K CONFIG_CRYPTO_LZO; do
-            if grep -q "^# ${CFG} is not set$" "$DEFCONFIG"; then
+          for CFG in CONFIG_ZRAM CONFIG_ZSMALLOC CONFIG_ZRAM_DEF_COMP_LZ4KD CONFIG_ZRAM_DEF_COMP_LZ4K CONFIG_CRYPTO_LZO CONFIG_ZRAM_BACKEND_LZ4 CONFIG_ZRAM_BACKEND_ZSTD CONFIG_ZRAM_BACKEND_LZO CONFIG_ZRAM_WRITEBACK CONFIG_ZRAM_MULTI_COMP CONFIG_ZRAM_ANDROID_IOCTL; do
+            if grep -q "^${CFG}=y$\|^${CFG}=m$" "$DEFCONFIG"; then
+              sed -i "/^${CFG}=y$/d; /^${CFG}=m$/d" "$DEFCONFIG"
+              echo "  Removed $CFG from defconfig"
+            elif grep -q "^# ${CFG} is not set$" "$DEFCONFIG"; then
               echo "  Already disabled: $CFG"
-            elif grep -q "^${CFG}=y$" "$DEFCONFIG"; then
-              sed -i "s/^${CFG}=y$/# ${CFG} is not set/" "$DEFCONFIG"
-              echo "  Forced off: $CFG"
-            elif grep -q "^${CFG}=m$" "$DEFCONFIG"; then
-              sed -i "s/^${CFG}=m$/# ${CFG} is not set/" "$DEFCONFIG"
-              echo "  Forced off (was module): $CFG"
             else
-              echo "# ${CFG} is not set" >> "$DEFCONFIG"
-              echo "  Added and disabled: $CFG"
+              echo "  $CFG absent (defaults to off)"
             fi
           done
 
@@ -1074,10 +1080,10 @@ jobs:
           # NoMount integration is done via anchor-based sed (not a context
           # patch): SUSFS also inserts into fs/Makefile's obj-y block before
           # us, which shifts the patch context and breaks fuzz=0. Anchoring on
-          # stable lines (obj-$(CONFIG_BUFFER_HEAD), config IO_WQ + endmenu)
-          # works regardless of what SUSFS already added.
+          # stable lines (obj-$(CONFIG_PROC_FS) += proc_namespace.o, config
+          # IO_WQ + bool) works regardless of what SUSFS already added.
           grep -q 'CONFIG_NOMOUNT' fs/Makefile || sed -i '/obj-\$(CONFIG_PROC_FS)\t\t+= proc_namespace.o/i\obj-\$(CONFIG_NOMOUNT) += nomount/\' fs/Makefile
-          grep -q 'fs/nomount/Kconfig' fs/Kconfig || sed -i '/^config IO_WQ$/a\source "fs/nomount/Kconfig"' fs/Kconfig
+          grep -q 'fs/nomount/Kconfig' fs/Kconfig || perl -0pi -e 's/^(config IO_WQ\n\tbool)\n/$1\nsource "fs\/nomount\/Kconfig"\n/m' fs/Kconfig
           mkdir -p ./fs/nomount
           NOMOUNT_SRC="$GITHUB_WORKSPACE/.github/patches/nomount/src"
           NOMOUNT_BRANCH="master"
@@ -1109,8 +1115,12 @@ jobs:
             cp $NOMOUNT_SRC/Kconfig ./fs/nomount/
             cp $NOMOUNT_SRC/Makefile ./fs/nomount/
           fi
-          echo "CONFIG_NOMOUNT=y" >> arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KEYS=y" >> arch/arm64/configs/gki_defconfig
+          # Do NOT append CONFIG_NOMOUNT=y / CONFIG_KEYS=y to gki_defconfig:
+          # NOMOUNT is tristate "default y" and KEYS is already enabled by
+          # default in the stock .config, so `make savedefconfig` omits both
+          # from its output. Any defconfig/fragment line that savedefconfig
+          # drops fails the kernel_aarch64_config trim check with
+          # "savedefconfig does not match gki_defconfig".
           echo "NoMount enabled."
 
       - name: Apply binder async free race defensive fix
@@ -1140,9 +1150,6 @@ jobs:
         run: |
           git clone --depth 1 https://github.com/ravindu644/Droidspaces-OSS.git /tmp/Droidspaces-OSS
           echo "DROIDSPACES_PATCHES=/tmp/Droidspaces-OSS/Documentation/resources/kernel-patches/GKI" >> $GITHUB_ENV
-
-      - name: Back up baseline defconfig
-        run: cp "$DEFCONFIG" "$DEFCONFIG.orig"
 
       - name: Integrate Droidspaces support
         if: inputs.droidspaces != 'off'
