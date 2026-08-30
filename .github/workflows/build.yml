@@ -1314,6 +1314,14 @@ jobs:
 
           if [ -f "drivers/misc/ntsync.c" ]; then
             echo "::notice::NTSync already present in kernel tree (upstream backport), skipping patch"
+            # The in-tree NTSync is gated by 'depends on BROKEN' (unfinished
+            # feature); drop the dependency so CONFIG_NTSYNC=y below can
+            # actually take effect. Otherwise check_config.py fails with
+            # "CONFIG_NTSYNC: actual '', expected 'y' from ksu.fragment".
+            if [ "${{ inputs.kernel_version }}" = "6.12" ] && grep -q 'depends on BROKEN' drivers/misc/Kconfig; then
+              perl -0pi -e 's/(config NTSYNC\n\ttristate[^\n]*\n)\tdepends on BROKEN\n/$1/' drivers/misc/Kconfig
+              echo "  Dropped 'depends on BROKEN' from config NTSYNC"
+            fi
           else
             patch -p1 --forward < "ntsync_base.patch" || { echo "::error::NTSync base patch failed"; exit 1; }
             patch -p1 --forward < "${NTSYNC_PATCH}.patch" || { echo "::error::NTSync ${NTSYNC_PATCH} patch failed"; exit 1; }
