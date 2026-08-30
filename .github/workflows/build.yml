@@ -1305,8 +1305,12 @@ jobs:
           wget -q "https://raw.githubusercontent.com/Goldzxcbug/Droidspaces_Kernel_patch/refs/heads/main/NTsync/ntsync_base.patch"
           wget -q "https://raw.githubusercontent.com/Goldzxcbug/Droidspaces_Kernel_patch/refs/heads/main/NTsync/${NTSYNC_PATCH}.patch"
 
-          patch -p1 < "ntsync_base.patch"
-          patch -p1 < "${NTSYNC_PATCH}.patch"
+          if [ -f "drivers/misc/ntsync.c" ]; then
+            echo "::notice::NTSync already present in kernel tree (upstream backport), skipping patch"
+          else
+            patch -p1 --forward < "ntsync_base.patch" || { echo "::error::NTSync base patch failed"; exit 1; }
+            patch -p1 --forward < "${NTSYNC_PATCH}.patch" || { echo "::error::NTSync ${NTSYNC_PATCH} patch failed"; exit 1; }
+          fi
 
           cd ..
 
