@@ -37,17 +37,12 @@ static struct rb_root_cached nomount_rules_tree = RB_ROOT_CACHED;
 static LIST_HEAD(nomount_sb_list);
 static DEFINE_IDR(nomount_uid_idr);
 static DECLARE_RWSEM(nomount_rwsem);
+static DEFINE_STATIC_KEY_FALSE(nomount_active_uids);
 DEFINE_STATIC_SRCU(nomount_srcu);
-
-/* * Helpers to dynamically calculate the memory address of the strings */
-#define nm_get_vpath(rule) ((rule)->paths)
-#define nm_get_rpath(rule) ((rule)->paths + (rule)->v_len + 1)
 
 struct nm_iop {
     struct inode_operations fake_iop; /* MUST be exactly at offset 0 */
     const struct inode_operations *orig_iop;
-    struct dentry_operations fake_dop;
-    const struct dentry_operations *orig_dop;
     struct nomount_dir_node *dir_node;
     struct rcu_head rcu;
 };
@@ -72,28 +67,14 @@ struct nm_sop {
 struct nm_inode_info {
     struct path r_path;
     struct nomount_dir_node *dir_node;
-    unsigned long v_ino;
     u8 flags;
-};
-
-struct nomount_child_node {
-    struct rcu_head rcu;
-    u32 name_hash;
-    u32 fake_ino;
-    int id;
-    u8 d_type;
-    u8 flags;
-    u16 name_len;
-    struct nomount_rule *rule;
-    char name[]; 
 };
 
 struct nomount_child_array {
     struct rcu_head rcu;
     int count;
     int capacity;
-    u32 *hashes;
-    struct nomount_child_node **nodes;
+    u32 hashes[];
 };
 
 struct nomount_dir_node {
@@ -101,35 +82,48 @@ struct nomount_dir_node {
     struct nomount_child_array __rcu *children;
     u64 bloom_mask;
     struct inode *v_inode;
-    union {
-        struct inode *dir_inode;
-        struct nomount_rule *owner_rule;
-        unsigned long _tag_ptr;
-    };
+    unsigned long _tag_ptr;
+    struct nm_iop __rcu *iop;
+    struct nm_fop __rcu *fop;
     seqcount_t seq;
 };
 
 struct nomount_rule {
-    struct rb_node rb_node;
+    union {
+        struct rb_node rb_node;
+        struct hlist_node vpath_node;
+    };
+    union {
+        struct path r_path;
+        struct nomount_dir_node *this_dir;
+    };
+    unsigned long v_ino;
     u32 v_hash;
     unsigned int target_uid;
     u16 v_len;
-    u8  flags;
-    struct rcu_head rcu;
-    struct hlist_node vpath_node;
+    u16 r_len;
+    u16 child_len;
+    u16 flags;
     struct nomount_dir_node *parent_dir;
-    struct nomount_dir_node *this_dir;
-    struct path r_path;
-    unsigned long v_ino;
-    char paths[]; 
+    char paths[];
 };
 
 struct nm_rule_info {
-    u32 flags;
+    union {
+        struct path r_path;
+        struct nomount_dir_node *this_dir;
+    };
     unsigned long v_ino;
-    struct path r_path;
-    struct nomount_dir_node *this_dir;
+    u16 flags;
 };
+
+/* * Helpers to dynamically calculate the memory address of the strings / structs */
+#define nm_get_vpath(rule) ((rule)->paths)
+#define nm_get_rpath(rule) ((rule)->paths + (rule)->v_len + 1)
+#define nm_get_child_name(rule) (nm_get_vpath(rule) + (rule)->v_len - (rule)->child_len)
+static __always_inline struct nomount_rule **nm_get_child_rules(struct nomount_child_array *array) {
+    return (struct nomount_rule **)(array->hashes + array->capacity);
+}
 
 /*** Operaction Vectors ***/
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 16, 0)
@@ -175,7 +169,7 @@ static inline int nm_unpack_pos(loff_t pos) {
 }
 
 /** RBTree Protocol ****/
-static __always_inline struct nomount_rule *nm_tree_search_path(u32 hash, u16 len, const char *path)
+static struct nomount_rule *nm_tree_search_path(u32 hash, u16 len, const char *path)
 {
     struct rb_node *node = nomount_rules_tree.rb_root.rb_node;
     while (node) {
@@ -190,7 +184,7 @@ static __always_inline struct nomount_rule *nm_tree_search_path(u32 hash, u16 le
     return NULL;
 }
 
-static __always_inline struct nomount_rule *nm_tree_search_exact(u32 hash, u16 len, const char *path, unsigned int uid)
+static struct nomount_rule *nm_tree_search_exact(u32 hash, u16 len, const char *path, unsigned int uid)
 {
     struct rb_node *node = nomount_rules_tree.rb_root.rb_node;
     while (node) {
@@ -206,7 +200,7 @@ static __always_inline struct nomount_rule *nm_tree_search_exact(u32 hash, u16 l
     return NULL;
 }
 
-static __always_inline void nm_tree_insert(struct nomount_rule *new_rule)
+static void nm_tree_insert(struct nomount_rule *new_rule)
 {
     struct rb_node **link = &nomount_rules_tree.rb_root.rb_node, *parent = NULL;
     bool leftmost = true;
@@ -324,6 +318,11 @@ static inline int nm_call_iterate(struct file *file, struct dir_context *ctx, co
         return fop->iterate(file, ctx);
 #endif
     return -ENOTDIR;
+}
+
+static inline struct dentry *nm_hash_and_lookup(struct dentry *dir, struct qstr *n) {
+    n->hash = full_name_hash(dir, n->name, n->len);
+    return (unlikely(dir->d_flags & DCACHE_OP_HASH) && dir->d_op->d_hash(dir, n) < 0) ? NULL : d_lookup(dir, n);
 }
 
 #endif /* _LINUX_NOMOUNT_H */
