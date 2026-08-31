@@ -1060,6 +1060,14 @@ jobs:
           grep -q '^CONFIG_TCP_CONG_BBR3=' arch/arm64/configs/gki_defconfig \
             && sed -i 's/^CONFIG_TCP_CONG_BBR3=.*/CONFIG_TCP_CONG_BBR3=y/' arch/arm64/configs/gki_defconfig \
             || echo 'CONFIG_TCP_CONG_BBR3=y' >> arch/arm64/configs/gki_defconfig
+          # Match WildKernels: make BBR the default congestion control (BBRv3 is
+          # then selectable via sysctl net.ipv4.tcp_congestion_control).
+          grep -q '^CONFIG_DEFAULT_BBR=' arch/arm64/configs/gki_defconfig \
+            && sed -i 's/^CONFIG_DEFAULT_BBR=.*/CONFIG_DEFAULT_BBR=y/' arch/arm64/configs/gki_defconfig \
+            || echo 'CONFIG_DEFAULT_BBR=y' >> arch/arm64/configs/gki_defconfig
+          grep -q '^CONFIG_DEFAULT_TCP_CONG=' arch/arm64/configs/gki_defconfig \
+            && sed -i 's/^CONFIG_DEFAULT_TCP_CONG=.*/CONFIG_DEFAULT_TCP_CONG="bbr"/' arch/arm64/configs/gki_defconfig \
+            || echo 'CONFIG_DEFAULT_TCP_CONG="bbr"' >> arch/arm64/configs/gki_defconfig
 
           # Enabling TCP_CONG_ADVANCED also exposes the sibling congestion control
           # algorithms (tcp_bic/htcp/westwood), which in the effective GKI config
