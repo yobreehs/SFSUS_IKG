@@ -69,10 +69,10 @@ on:
         type: boolean
         default: false
       nomount_variant:
-        description: "NoMount driver source: dev or hookless"
+        description: "NoMount driver source: hookless (master, stable) or ci (dev, nightly)"
         required: false
         type: string
-        default: "dev"
+        default: "hookless"
       use_bbrv3:
         required: false
         type: boolean
@@ -1140,11 +1140,17 @@ jobs:
           grep -q 'fs/nomount/Kconfig' fs/Kconfig || perl -0pi -e 's/^(config IO_WQ\n\tbool)\n/$1\nsource "fs\/nomount\/Kconfig"\n/m' fs/Kconfig
           mkdir -p ./fs/nomount
           NOMOUNT_SRC="$GITHUB_WORKSPACE/.github/patches/nomount/src"
-          NOMOUNT_BRANCH="master"
-          if [ "${{ inputs.nomount_variant }}" == "hookless" ]; then
-            NOMOUNT_SRC="$GITHUB_WORKSPACE/.github/patches/nomount/src-hookless"
-            NOMOUNT_BRANCH="dev"
-          fi
+          # master = hookless base (stable), dev = CI/nightly. hookless is the
+          # default; ci tracks upstream dev for newer builds.
+          case "${{ inputs.nomount_variant }}" in
+            "ci")
+              NOMOUNT_SRC="$GITHUB_WORKSPACE/.github/patches/nomount/src-hookless"
+              NOMOUNT_BRANCH="dev"
+              ;;
+            *)
+              NOMOUNT_BRANCH="master"
+              ;;
+          esac
           # Fetch the current driver from the upstream repo so we don't have to
           # re-bump the bundled copy on every upstream release. Fall back to the
           # local snapshot if the network fetch fails.
