@@ -1028,8 +1028,14 @@ jobs:
         working-directory: ${{ env.KERNEL_ROOT }}/common
         run: |
           echo "Applying BBRv3 TCP congestion control backport..."
-          if [[ "${{ inputs.android_version }}" == "android14" && "${{ inputs.kernel_version }}" == "6.1" ]]; then
+          if [[ "${{ inputs.android_version }}" == "android16" && "${{ inputs.kernel_version }}" == "6.12" ]]; then
+            PATCH="$GITHUB_WORKSPACE/.github/patches/bbrv3/0001-net-tcp-backport-BBRv3-to-android16-6.12.patch"
+            # fatalcoder524's 6.12 backport has one hunk that needs fuzz>0 on
+            # the latest 6.12 sublevels (context shifted by upstream changes).
+            PATCH_FUZZ=2
+          elif [[ "${{ inputs.android_version }}" == "android14" && "${{ inputs.kernel_version }}" == "6.1" ]]; then
             PATCH="$GITHUB_WORKSPACE/.github/patches/bbrv3/0001-net-tcp-backport-BBRv3-to-android14-6.1.patch"
+            PATCH_FUZZ=0
           elif [[ "${{ inputs.android_version }}" == "android12" && "${{ inputs.kernel_version }}" == "5.10" ]]; then
             # Two variants cover the 5.10 matrix: deprecated 2025-02/2025-05
             # branches (SUBLEVEL 233/236) need the 2025-06 context, while the
@@ -1038,12 +1044,13 @@ jobs:
               "2025-02"|"2025-05"|"2025-06") PATCH="$GITHUB_WORKSPACE/.github/patches/bbrv3/0001-net-tcp-backport-BBRv3-to-android12-5.10-2025-06.patch" ;;
               *) PATCH="$GITHUB_WORKSPACE/.github/patches/bbrv3/0001-net-tcp-backport-BBRv3-to-android12-5.10-lts.patch" ;;
             esac
+            PATCH_FUZZ=0
           else
-            echo "::warning::BBRv3 is only available for android14-6.1 and android12-5.10 in this repo; skipping."
+            echo "::warning::BBRv3 is only available for android16-6.12, android14-6.1 and android12-5.10 in this repo; skipping."
             exit 0
           fi
 
-          patch -p1 --fuzz=0 < "$PATCH" || { echo "::error::BBRv3 patch failed to apply"; exit 1; }
+          patch -p1 --fuzz=$PATCH_FUZZ < "$PATCH" || { echo "::error::BBRv3 patch failed to apply"; exit 1; }
 
           # BBRv3 needs CONFIG_TCP_CONG_ADVANCED + CONFIG_TCP_CONG_BBR3 (same flags
           # the upstream WildKernels bbrv3 action sets in gki_defconfig).

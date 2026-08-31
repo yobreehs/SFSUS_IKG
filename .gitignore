@@ -73,3 +73,8 @@ action_build_comparison.md
 
 # Session debug backup (temporary, do not commit)
 .session-backup/
+
+# AI session journals / notes (keep local, not in repo)
+bbrv3-source.md
+job.md
+tegu-port-plan.md
