@@ -705,6 +705,18 @@ jobs:
             sed -i 's/VMA_PAD_START(vma)/vma->vm_end/g' "$SUSFS_PATCH"
           fi
 
+          # 6.12-2026-03+ (sublevel 69+) renamed vma_pages() to vma_data_pages() in
+          # fs/proc/task_mmu.c; the SUSFS SUS_MAP hunk anchors on
+          # 'if (!vma_pages(vma))' and gets rejected on those kernels.
+          # Rewrite the anchor to match the tree (vma_pages() itself still
+          # exists in include/linux/mm.h, so check task_mmu.c, not the headers).
+          if [[ "${{ inputs.kernel_version }}" == "6.12" ]] \
+            && grep -q 'if (!vma_pages(vma))' "$SUSFS_PATCH" \
+            && grep -q 'vma_data_pages' fs/proc/task_mmu.c; then
+            echo "6.12 kernel uses vma_data_pages(); adjusting SUSFS task_mmu.c context"
+            sed -i 's/if (!vma_pages(vma))/if (!vma_data_pages(vma))/g' "$SUSFS_PATCH"
+          fi
+
           # Temporarily adjust source context before applying the main patch, replacing the archived wild micro-fixes
           if [[ "${{ inputs.android_version }}" == "android12" && "${{ inputs.kernel_version }}" == "5.10" ]]; then
             if [[ "$CURRENT_SUB" -le 43 ]]; then
@@ -1865,15 +1877,6 @@ jobs:
           path: |
             *AnyKernel3.zip
             *.img
-          compression-level: 9
-
-      - name: Upload patch reject files
-        if: always() && env.REJ_COUNT > 0
-        uses: actions/upload-artifact@v6
-        with:
-          name: ${{ inputs.ksu_variant }}_kernel-${{ env.CONFIG }}-Rejects
-          path: patch-rejects/
-          if-no-files-found: ignore
           compression-level: 9
 
       - name: Upload patch reject files
