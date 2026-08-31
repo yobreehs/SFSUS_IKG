@@ -782,23 +782,6 @@ jobs:
 
           patch -p1 < "$SUSFS_PATCH" || true
 
-          # SUSFS 6.12 (gki-android16-6.12) calls security_{context_to_sid,
-          # sid_to_context,compute_av_user}_with_policy from the kernel as
-          # extern symbols, but KernelSU keeps them 'static' (pershoot
-          # KernelSU-Next dev-susfs, SukiSU, ReSukiSU, ...). A static forward
-          # declaration makes the whole definition static-linkage, so vmlinux
-          # links with "undefined symbol". Official KernelSU applies
-          # 10_enable_susfs_for_ksu.patch which un-statics them; the other
-          # variants don't, so strip 'static' here (idempotent: no-op when a
-          # fork already exports them).
-          if [ "${{ inputs.kernel_version }}" = "6.12" ]; then
-            SELINUX_HIDE="$KERNEL_ROOT/common/drivers/kernelsu/feature/selinux_hide.c"
-            if [ -f "$SELINUX_HIDE" ]; then
-              sed -i 's/^static int security_context_to_sid_with_policy/int security_context_to_sid_with_policy/; s/^static int security_sid_to_context_with_policy/int security_sid_to_context_with_policy/; s/^static void security_compute_av_user_with_policy/void security_compute_av_user_with_policy/' "$SELINUX_HIDE"
-              echo "Un-static'd KernelSU selinux *_with_policy helpers"
-            fi
-          fi
-
           # Revert the temporary context after the main patch is applied, to avoid unrelated source diffs leaking into the final artifact
           if [[ "${{ inputs.android_version }}" == "android12" && "${{ inputs.kernel_version }}" == "5.10" ]]; then
             if [[ "$CURRENT_SUB" -le 43 ]]; then
@@ -1007,6 +990,25 @@ jobs:
                 echo "Fixed exec.c missing susfs_def.h"
               fi
             fi
+          fi
+
+      # SUSFS 6.12 (gki-android16-6.12) calls security_{context_to_sid,
+      # sid_to_context,compute_av_user}_with_policy from the kernel as extern
+      # symbols. KernelSU forks keep them static (pershoot KernelSU-Next
+      # dev-susfs, SukiSU, ReSukiSU, ...); a static forward declaration gives
+      # the whole definition static linkage, so vmlinux fails to link with
+      # "undefined symbol". Official KernelSU applies 10_enable_susfs_for_ksu
+      # .patch which un-statics them; the other variants don't, so strip
+      # 'static' here. Separate step on purpose: the Apply SUSFS run command
+      # already sits at ~20k chars, near GitHub's 21000-char expression limit.
+      - name: Un-static KernelSU selinux helpers for SUSFS 6.12
+        if: inputs.enable_susfs && inputs.kernel_version == '6.12'
+        working-directory: ${{ env.KERNEL_ROOT }}
+        run: |
+          SELINUX_HIDE="common/drivers/kernelsu/feature/selinux_hide.c"
+          if [ -f "$SELINUX_HIDE" ]; then
+            sed -i 's/^static int security_context_to_sid_with_policy/int security_context_to_sid_with_policy/; s/^static int security_sid_to_context_with_policy/int security_sid_to_context_with_policy/; s/^static void security_compute_av_user_with_policy/void security_compute_av_user_with_policy/' "$SELINUX_HIDE"
+            echo "Un-static'd KernelSU selinux *_with_policy helpers"
           fi
 
       - name: Apply BBRv3 patch
