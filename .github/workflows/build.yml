@@ -1076,6 +1076,23 @@ jobs:
           grep -q '^CONFIG_DEFAULT_TCP_CONG=' arch/arm64/configs/gki_defconfig \
             && sed -i 's/^CONFIG_DEFAULT_TCP_CONG=.*/CONFIG_DEFAULT_TCP_CONG="bbr"/' arch/arm64/configs/gki_defconfig \
             || echo 'CONFIG_DEFAULT_TCP_CONG="bbr"' >> arch/arm64/configs/gki_defconfig
+          # TCP_CONG_ADVANCED=y exposes BIC/WESTWOOD/HTCP as tristate default m
+          # on old 6.12 branches (2025-06/07/09) which lack the explicit
+          # "# ... is not set" lines newer branches carry in gki_defconfig.
+          # They then get built as .ko and Kleaf fails with "kernel modules
+          # are built but not copied" (not in module_outs). We only want
+          # BBR + BBRv3, so pin them off explicitly.
+          if [ "${{ inputs.kernel_version }}" = "6.12" ]; then
+            for CFG in CONFIG_TCP_CONG_BIC CONFIG_TCP_CONG_WESTWOOD CONFIG_TCP_CONG_HTCP; do
+              if grep -q "^${CFG}=m$" arch/arm64/configs/gki_defconfig; then
+                sed -i "s/^${CFG}=m$/# ${CFG} is not set/" arch/arm64/configs/gki_defconfig
+              elif grep -q "^# ${CFG} is not set$" arch/arm64/configs/gki_defconfig; then
+                :
+              else
+                echo "# ${CFG} is not set" >> arch/arm64/configs/gki_defconfig
+              fi
+            done
+          fi
 
           # Enabling TCP_CONG_ADVANCED also exposes the sibling congestion control
           # algorithms (tcp_bic/htcp/westwood), which in the effective GKI config
