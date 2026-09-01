@@ -109,6 +109,11 @@ on:
         required: false
         type: boolean
         default: false
+      use_performance:
+        description: "Enable performance patches (mem ops, scheduler, fs, wakelock tuning)"
+        required: false
+        type: boolean
+        default: false
       supp_op:
         description: "OnePlus 8E support"
         required: false
@@ -156,6 +161,10 @@ on:
         type: boolean
         default: false
       use_bbrv3:
+        required: false
+        type: boolean
+        default: false
+      use_performance:
         required: false
         type: boolean
         default: false
@@ -222,6 +231,7 @@ jobs:
       nomount_variant: ${{ contains(inputs.nomount, 'ci') && 'ci' || 'hookless' }}
       use_vpnhide: ${{ inputs.use_vpnhide }}
       use_bbrv3: ${{ inputs.use_bbrv3 }}
+      use_performance: ${{ inputs.use_performance }}
       droidspaces: ${{ inputs.droidspaces || 'off' }}
       droidspaces_ntsync: ${{ inputs.droidspaces_ntsync || false }}
       artifact_upload_mode: ${{ inputs.artifact_upload_mode }}
