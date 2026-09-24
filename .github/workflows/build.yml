@@ -1391,6 +1391,30 @@ jobs:
           CONFIG_KSU_SUSFS_SUS_MAP=y
           EOF
 
+      # SUSFS-enabled KernelSU forks (pershoot KernelSU-Next dev-susfs, ...)
+      # declare 'config KSU_SUSFS ... default y' in their own Kconfig. With
+      # enable_susfs off we skip the SUSFS patch, so linux/susfs.h never lands
+      # in include/linux, but the Kconfig default still turns CONFIG_KSU_SUSFS
+      # on -> drivers/kernelsu/core/init.c fails with
+      # "fatal error: 'linux/susfs.h' file not found". Pin it off explicitly
+      # so the #ifdef CONFIG_KSU_SUSFS blocks compile out.
+      - name: Force-disable SUSFS config when enable_susfs is off
+        if: ${{ !inputs.enable_susfs }}
+        run: |
+          if grep -RqsE '^[[:space:]]*(menuconfig|config)[[:space:]]+KSU_SUSFS([[:space:]]|$)' "$KERNEL_ROOT"/KernelSU 2>/dev/null; then
+            if grep -q '^# CONFIG_KSU_SUSFS is not set$' "$DEFCONFIG"; then
+              echo "  CONFIG_KSU_SUSFS already disabled"
+            elif grep -q '^CONFIG_KSU_SUSFS=y$' "$DEFCONFIG"; then
+              sed -i 's/^CONFIG_KSU_SUSFS=y$/# CONFIG_KSU_SUSFS is not set/' "$DEFCONFIG"
+              echo "  Forced off CONFIG_KSU_SUSFS"
+            else
+              echo "# CONFIG_KSU_SUSFS is not set" >> "$DEFCONFIG"
+              echo "  Added CONFIG_KSU_SUSFS is not set"
+            fi
+          else
+            echo "  KSU_SUSFS not present in this KernelSU variant, nothing to disable"
+          fi
+
       - name: Configure kernel name
         working-directory: ${{ env.KERNEL_ROOT }}
         run: |
