@@ -1400,8 +1400,13 @@ jobs:
       # so the #ifdef CONFIG_KSU_SUSFS blocks compile out.
       - name: Force-disable SUSFS config when enable_susfs is off
         if: ${{ !inputs.enable_susfs }}
+        working-directory: ${{ env.KERNEL_ROOT }}/common
         run: |
-          if grep -RqsE '^[[:space:]]*(menuconfig|config)[[:space:]]+KSU_SUSFS([[:space:]]|$)' "$KERNEL_ROOT"/KernelSU 2>/dev/null; then
+          # KernelSU setup.sh links the driver dir as common/drivers/kernelsu
+          # -> <repo>/kernel (pershoot KernelSU-Next lives in KernelSU-Next/,
+          # SukiSU in KernelSU/, ...), so the symlink is the stable probe path.
+          KSU_KCONFIG="drivers/kernelsu/Kconfig"
+          if grep -E '^[[:space:]]*(menuconfig|config)[[:space:]]+KSU_SUSFS([[:space:]]|$)' "$KSU_KCONFIG" 2>/dev/null; then
             if grep -q '^# CONFIG_KSU_SUSFS is not set$' "$DEFCONFIG"; then
               echo "  CONFIG_KSU_SUSFS already disabled"
             elif grep -q '^CONFIG_KSU_SUSFS=y$' "$DEFCONFIG"; then
