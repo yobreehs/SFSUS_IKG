@@ -328,6 +328,23 @@ jobs:
           if grep -q deprecated <<< $REMOTE_BRANCH; then
             echo "Detected deprecated branch: $FORMATTED_BRANCH"
             sed -i "s/\"${FORMATTED_BRANCH}\"/\"deprecated\/${FORMATTED_BRANCH}\"/g" $DEFAULT_MANIFEST_PATH
+          elif [ -z "$REMOTE_BRANCH" ]; then
+            # Google retires old monthly branches entirely (neither live nor
+            # under deprecated/), while the manifest still points at the
+            # branch. Release tags survive, so fall back to the highest _rN
+            # tag. A bare tag name is resolved by repo as refs/heads/<name>,
+            # so the refs/tags/ full path is required.
+            echo "Branch $FORMATTED_BRANCH no longer exists upstream, looking for a release tag..."
+            LATEST_TAG=$(git ls-remote https://android.googlesource.com/kernel/common "refs/tags/${FORMATTED_BRANCH}_r*" 2>/dev/null \
+              | awk '{print $2}' | grep -v '\^{}$' | sed 's|refs/tags/||' \
+              | awk -F'_r' '{print $NF+0, $0}' | sort -n | tail -n 1 | cut -d' ' -f2- || true)
+            if [ -z "$LATEST_TAG" ]; then
+              echo "::error::Branch $FORMATTED_BRANCH has no branch and no release tag upstream"
+              exit 1
+            fi
+            echo "Falling back to release tag: $LATEST_TAG"
+            sed -i "/path=\"common\"/ s|revision=\"${FORMATTED_BRANCH}\"|revision=\"refs/tags/${LATEST_TAG}\"|" $DEFAULT_MANIFEST_PATH
+            echo "TAG_FALLBACK=$LATEST_TAG" >> $GITHUB_ENV
           fi
 
           $REPO --trace sync -c -j$(nproc --all) --no-tags --fail-fast
