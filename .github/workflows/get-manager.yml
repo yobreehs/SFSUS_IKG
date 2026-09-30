@@ -403,13 +403,13 @@ jobs:
           else
             echo "下载 NoMount 模块 (latest CI from maxsteeel/nomount)..."
             case "${{ inputs.nomount }}" in
-              "nomount (ci)") echo "::notice::NoMount module from branch: dev" ;;
-              *) echo "::notice::NoMount module from branch: master" ;;
+              "nomount (ci)") echo "::notice::NoMount module from branch: dev"; NOMOUNT_BRANCH="dev" ;;
+              *) echo "::notice::NoMount module from branch: master"; NOMOUNT_BRANCH="master" ;;
             esac
             REPO="maxsteeel/nomount"
           fi
           BUILD_ID=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-          "https://api.github.com/repos/$REPO/actions/runs?status=success&per_page=1" |
+          "https://api.github.com/repos/$REPO/actions/runs?status=success&per_page=1&head_branch=$NOMOUNT_BRANCH" |
           jq -r '.workflow_runs[0].id')
 
           if [ -z "$BUILD_ID" ] || [ "$BUILD_ID" == "null" ]; then
