@@ -467,7 +467,7 @@ jobs:
 
       - name: 上传APK
         if: steps.add_KSU.outcome == 'success'
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ inputs.kernelsu_variant }}-Manager(${{ env.KSU_VERSION }})
           path: |
@@ -475,17 +475,23 @@ jobs:
 
       - name: 上传SUSFS模块
         if: steps.add_SUSFS.outcome == 'success'
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: susfs-${{ env.SUSFS_NAME }}
           path: ./susfs-module/*
+          if-no-files-found: warn
+          # Do not wrap the module zip in another archive: without this GitHub
+          # hands the user "zip containing zip". Prefer a single-level download.
+          archive: false
 
       - name: 上传NoMount模块
         if: steps.add_nomount.outcome == 'success'
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: nomount-${{ env.NOMOUNT_NAME }}
           path: ./nomount-module/*
+          if-no-files-found: warn
+          archive: false
 
       - name: Download VPNHide Next companion artifacts
         if: inputs.use_vpnhide
@@ -523,7 +529,7 @@ jobs:
 
       - name: 上传VPNHide companion
         if: inputs.use_vpnhide
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: vpnhide-companion
           path: vpnhide-companion/
