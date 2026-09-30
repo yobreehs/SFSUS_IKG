@@ -104,6 +104,11 @@ on:
         required: false
         type: boolean
         default: false
+      use_hma_uidfake:
+        description: "Attach HMA-UID-Fake KernelSU module zip (KodateMitsuru/hma-uidfake)"
+        required: false
+        type: boolean
+        default: false
       use_bbrv3:
         description: "Enable BBRv3 TCP congestion control backport (Android 14 - 6.1 build; no-op on other kernels)"
         required: false
@@ -157,6 +162,10 @@ on:
         type: string
         default: "disabled"
       use_vpnhide:
+        required: false
+        type: boolean
+        default: false
+      use_hma_uidfake:
         required: false
         type: boolean
         default: false
@@ -230,6 +239,7 @@ jobs:
       enable_nomount: ${{ inputs.nomount == 'nomount (hookless)' || inputs.nomount == 'nomount (ci)' }}
       nomount_variant: ${{ contains(inputs.nomount, 'ci') && 'ci' || 'hookless' }}
       use_vpnhide: ${{ inputs.use_vpnhide }}
+      use_hma_uidfake: ${{ inputs.use_hma_uidfake }}
       use_bbrv3: ${{ inputs.use_bbrv3 }}
       use_performance: ${{ inputs.use_performance }}
       droidspaces: ${{ inputs.droidspaces || 'off' }}
@@ -246,5 +256,6 @@ jobs:
       susfs: ${{ inputs.susfs || 'enabled' }}
       nomount: ${{ inputs.nomount || 'disabled' }}
       use_vpnhide: ${{ inputs.use_vpnhide || false }}
+      use_hma_uidfake: ${{ inputs.use_hma_uidfake || false }}
       android_version: "android16"
       kernel_version: "6.12"

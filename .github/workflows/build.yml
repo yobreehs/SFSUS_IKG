@@ -86,6 +86,11 @@ on:
         required: false
         type: boolean
         default: false
+      use_hma_uidfake:
+        description: "Attach HMA-UID-Fake (KodateMitsuru/hma-uidfake) KernelSU module zip to artifacts (getpriority/ioprio uid spoofing for HMA/HMA-OSS)"
+        required: false
+        type: boolean
+        default: false
       supp_op:
         required: false
         type: boolean
@@ -130,6 +135,7 @@ jobs:
           echo "NoMount enabled  : ${{ inputs.enable_nomount }}"
           echo "BBRv3 enabled    : ${{ inputs.use_bbrv3 }}"
           echo "VPNHide enabled  : ${{ inputs.use_vpnhide }}"
+          echo "HMA-UID-Fake     : ${{ inputs.use_hma_uidfake }}"
           echo "ZRAM boost       : ${{ inputs.use_zram }}"
           echo "BBG patch        : ${{ inputs.use_bbg }}"
           echo "KPM support      : ${{ inputs.use_kpm }}"
@@ -862,62 +868,19 @@ jobs:
         if: inputs.enable_nomount
         working-directory: ${{ env.KERNEL_ROOT }}/common
         run: |
-          echo "Applying NoMount (nomount) path redirection subsystem..."
-          # NoMount v12 is self-contained (fs/nomount/, key-based add_key
-          # transport): it no longer edits fs/*.c, so SUSFS and NoMount can be
-          # applied together (SUSFS adds its own fs/*.c hooks). Runtime
-          # interaction is untested -- both act on the VFS layer.
-          # NoMount integration is done via anchor-based sed (not a context
-          # patch): SUSFS also inserts into fs/Makefile's obj-y block before
-          # us, which shifts the patch context and breaks fuzz=0. Anchoring on
-          # stable lines (obj-$(CONFIG_PROC_FS) += proc_namespace.o, config
-          # IO_WQ + bool) works regardless of what SUSFS already added.
-          grep -q 'CONFIG_NOMOUNT' fs/Makefile || sed -i '/obj-\$(CONFIG_PROC_FS)\t\t+= proc_namespace.o/i\obj-\$(CONFIG_NOMOUNT) += nomount/\' fs/Makefile
-          grep -q 'fs/nomount/Kconfig' fs/Kconfig || perl -0pi -e 's/^(config IO_WQ\n\tbool)\n/$1\nsource "fs\/nomount\/Kconfig"\n/m' fs/Kconfig
-          mkdir -p ./fs/nomount
-          NOMOUNT_SRC="$GITHUB_WORKSPACE/.github/patches/nomount/src"
-          # master = hookless base (stable), dev = CI/nightly. hookless is the
-          # default; ci tracks upstream dev for newer builds.
-          case "${{ inputs.nomount_variant }}" in
-            "ci")
-              NOMOUNT_SRC="$GITHUB_WORKSPACE/.github/patches/nomount/src-hookless"
-              NOMOUNT_BRANCH="dev"
-              ;;
-            *)
-              NOMOUNT_BRANCH="master"
-              ;;
-          esac
-          # Fetch the current driver from the upstream repo so we don't have to
-          # re-bump the bundled copy on every upstream release. Fall back to the
-          # local snapshot if the network fetch fails.
-          if curl -fsSL --retry 3 --retry-delay 2 \
-               "https://raw.githubusercontent.com/maxsteeel/nomount/$NOMOUNT_BRANCH/kernel/src/nomount.c" \
-               -o ./fs/nomount/nomount.c; then
-            echo "Fetched nomount.c from maxsteeel/nomount@$NOMOUNT_BRANCH"
-            curl -fsSL --retry 3 --retry-delay 2 \
-              "https://raw.githubusercontent.com/maxsteeel/nomount/$NOMOUNT_BRANCH/kernel/src/nomount.h" \
-              -o ./fs/nomount/nomount.h
-            curl -fsSL --retry 3 --retry-delay 2 \
-              "https://raw.githubusercontent.com/maxsteeel/nomount/$NOMOUNT_BRANCH/kernel/src/Kconfig" \
-              -o ./fs/nomount/Kconfig
-            curl -fsSL --retry 3 --retry-delay 2 \
-              "https://raw.githubusercontent.com/maxsteeel/nomount/$NOMOUNT_BRANCH/kernel/src/Makefile" \
-              -o ./fs/nomount/Makefile
-            echo "NoMount driver fetched from upstream ($NOMOUNT_BRANCH)."
-          else
-            echo "::warning::Failed to fetch NoMount driver from upstream, using bundled snapshot."
-            cp $NOMOUNT_SRC/nomount.c ./fs/nomount/
-            cp $NOMOUNT_SRC/nomount.h ./fs/nomount/
-            cp $NOMOUNT_SRC/Kconfig ./fs/nomount/
-            cp $NOMOUNT_SRC/Makefile ./fs/nomount/
-          fi
-          # Do NOT append CONFIG_NOMOUNT=y / CONFIG_KEYS=y to gki_defconfig:
-          # NOMOUNT is tristate "default y" and KEYS is already enabled by
-          # default in the stock .config, so `make savedefconfig` omits both
-          # from its output. Any defconfig/fragment line that savedefconfig
-          # drops fails the kernel_aarch64_config trim check with
-          # "savedefconfig does not match gki_defconfig".
-          echo "NoMount enabled."
+          # NoMount is intentionally NOT built into the kernel (option A).
+          # In-tree CONFIG_NOMOUNT=y + the NoMount LKM (KernelSU metamodule, loaded
+          # via lkmloader from /data/adb/modules/nomount) are two copies of the
+          # same code hooking the VFS path walk; with CONFIG_CFI_CLANG=y the
+          # second copy trips CFI in lookup_fast -> Kernel panic (recorded in
+          # KernelSU_Next_bugreport_2026-09-30_14_02).
+          # maxsteeel/nomount README: "For GKI Users you generally do not need to
+          # do this. Pre-compiled LKMs are already provided in the NoMount release
+          # ZIP." So for GKI we ship the LKM module only (get-manager attaches the
+          # per-KMI nomount-<android>-<kernel>.ko artifact when nomount is
+          # selected). This step stays as a no-op gate so the old built-in path is
+          # gone and the CI matrix still documents the toggle.
+          echo "NoMount: built-in integration disabled (GKI uses the pre-built LKM module only)."
 
       - name: Apply binder async free race defensive fix
         working-directory: ${{ env.KERNEL_ROOT }}/common
