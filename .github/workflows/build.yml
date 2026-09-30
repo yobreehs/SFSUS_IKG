@@ -86,11 +86,6 @@ on:
         required: false
         type: boolean
         default: false
-      use_hma_uidfake:
-        description: "Attach HMA-UID-Fake (KodateMitsuru/hma-uidfake) KernelSU module zip to artifacts (getpriority/ioprio uid spoofing for HMA/HMA-OSS)"
-        required: false
-        type: boolean
-        default: false
       supp_op:
         required: false
         type: boolean
@@ -135,7 +130,6 @@ jobs:
           echo "NoMount enabled  : ${{ inputs.enable_nomount }}"
           echo "BBRv3 enabled    : ${{ inputs.use_bbrv3 }}"
           echo "VPNHide enabled  : ${{ inputs.use_vpnhide }}"
-          echo "HMA-UID-Fake     : ${{ inputs.use_hma_uidfake }}"
           echo "ZRAM boost       : ${{ inputs.use_zram }}"
           echo "BBG patch        : ${{ inputs.use_bbg }}"
           echo "KPM support      : ${{ inputs.use_kpm }}"

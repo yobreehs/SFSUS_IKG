@@ -34,11 +34,6 @@ on:
         required: false
         type: boolean
         default: false
-      use_hma_uidfake:
-        description: "Attach HMA-UID-Fake (KodateMitsuru/hma-uidfake) KernelSU module zip when enabled"
-        required: false
-        type: boolean
-        default: false
     outputs:
       susVer:
         description: "The fetched SUSFS version number"
@@ -532,42 +527,5 @@ jobs:
         with:
           name: vpnhide-companion
           path: vpnhide-companion/
-          if-no-files-found: ignore
-          compression-level: 9
-
-      - name: Download HMA-UID-Fake module
-        if: inputs.use_hma_uidfake
-        run: |
-          set -e
-          echo "Fetching HMA-UID-Fake module zip from KodateMitsuru/hma-uidfake CI..."
-          BUILD_ID=$(curl -s "https://api.github.com/repos/KodateMitsuru/hma-uidfake/actions/runs?status=success&per_page=1" \
-            | jq -r '.workflow_runs[0].id')
-          if [ -z "$BUILD_ID" ] || [ "$BUILD_ID" == "null" ]; then
-            echo "::warning::hma-uidfake CI run not found, skipping module"
-            exit 0
-          fi
-          ZIP_URL=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            "https://api.github.com/repos/KodateMitsuru/hma-uidfake/actions/runs/$BUILD_ID/artifacts" \
-            | jq -r '.artifacts[] | select(.name | startswith("hma-uidfake-")) | .archive_download_url' | head -1)
-          if [ -z "$ZIP_URL" ] || [ "$ZIP_URL" == "null" ]; then
-            echo "::warning::hma-uidfake module artifact not found in run $BUILD_ID, skipping"
-            exit 0
-          fi
-          mkdir -p hma-uidfake-module
-          echo "Downloading hma-uidfake module zip..."
-          curl -sL -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" -o "hma-uidfake.zip" "$ZIP_URL"
-          # The run publishes the module zip as a single-file artifact; unpack the
-          # artifact wrapper, then keep the module zip itself as the artifact.
-          unzip -o -q "hma-uidfake.zip" -d hma-uidfake-module
-          cp hma-uidfake-module/*.zip ./hma-uidfake-module/ 2>/dev/null || true
-          rm -f "hma-uidfake.zip"
-          ls -la hma-uidfake-module/
-
-      - name: 上传HMA-UID-Fake模块
-        if: inputs.use_hma_uidfake
-        uses: actions/upload-artifact@v6
-        with:
-          name: hma-uidfake-module
-          path: hma-uidfake-module/
           if-no-files-found: ignore
           compression-level: 9
