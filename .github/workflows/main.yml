@@ -709,3 +709,4 @@ jobs:
           echo "- **Tag**: $NEW_TAG" >> $GITHUB_STEP_SUMMARY
           echo "- **Type**: ${{ inputs.release_type }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Link**: https://github.com/$REPO_OWNER/$REPO_NAME/releases/tag/$NEW_TAG" >> $GITHUB_STEP_SUMMARY
+ 

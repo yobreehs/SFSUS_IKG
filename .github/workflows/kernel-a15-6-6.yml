@@ -254,3 +254,4 @@ jobs:
       use_vpnhide: ${{ inputs.use_vpnhide || false }}
       android_version: "android15"
       kernel_version: "6.6"
+ 
