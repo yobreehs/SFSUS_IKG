@@ -1,0 +1,6 @@
+Device: tegu
+Active Slot Suffix: _a
+Android Version: 17
+Security Patch: 2026-07-05
+Fingerprint: google/tegu/tegu:17/CP2A.260705.006/15641320:user/release-keys
+Kernel Version: Linux version 6.1.157-android14-11-geadf9a793a097-ab10025877-4k (build-user@build-host) (Android (10087095, +pgo, +bolt, +lto, -mlgo, based on r487747c) clang version 17.0.2 (https://android.googlesource.com/toolchain/llvm-project d9f89f4d16663d5012e5c09495f3b30ece3d2362), LLD 17.0.2) #1 SMP PREEMPT Sun Dec 01 08:10:00 UTC 2024
