@@ -535,3 +535,4 @@ jobs:
           path: vpnhide-companion/
           if-no-files-found: ignore
           compression-level: 9
+ 
