@@ -134,10 +134,11 @@ if [[ "$ANDROID_VERSION" == "android14" && "$KERNEL_VERSION" == "6.1" ]]; then
     echo "Temporarily adjusting Android 14 6.1 dma-buf.h context"
     sed -i '/^#include <linux\/cpufreq_times.h>$/a #include <linux/dma-buf.h>' fs/proc/base.c
   fi
-  if [[ "$CURRENT_SUB" -ge 157 ]]; then
-    echo "Temporarily adjusting Android 14 6.1 namespace.c context"
-    sed -i '/^#include <trace\/hooks\/blk.h>$/d' fs/namespace.c
-  fi
+  # NOTE: older SUSFS patches expected fs/namespace.c without the
+  # trace/hooks/blk.h include, so apply.sh used to delete it for sublevel
+  # >= 157. Current susfs4ksu hunks include that line in their context, and
+  # deleting it only creates fs/namespace.c.rej (the declarations are then
+  # injected by fix_namespace_susfs_mount_decls). Leave the source untouched.
 fi
 
 if [[ "$ANDROID_VERSION" == "android15" && "$KERNEL_VERSION" == "6.6" ]]; then
